@@ -111,10 +111,10 @@ export default function Profile({ params }: { params: { id: string } }) {
   });
   const [severity, setSeverity] = useState('');
   const [disableReset, setDisableReset] = useState(false);
-const [expandedFields, setExpandedFields] = useState({
-  'Professional Role': false,
-  'Professional Subrole': false,
-});
+  const [expandedFields, setExpandedFields] = useState({
+    'Professional Role': false,
+    'Professional Subrole': false,
+  });
 
   useEffect(() => {
     const getProfileData = async () => {
@@ -502,9 +502,9 @@ const [expandedFields, setExpandedFields] = useState({
         setErrorMessage(result.errorMessage);
         setSeverity('error');
       } else {
-         setDisableReset(true);
-         setShowSuccessDialog(true); // Show success dialog
-         handleClose();
+        setDisableReset(true);
+        setShowSuccessDialog(true); // Show success dialog
+        handleClose();
         // router.push('/');
       }
 
