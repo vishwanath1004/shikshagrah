@@ -23,10 +23,16 @@
       shell: cd {{project_path}} && npm i --force
     - name: Set permission
       shell: chmod 744 {{ project_path }}/apps/scripts/json2env.sh
-    - name: Generate .env
-      shell: cat {{root_path}}/data2.json | jq '.data' > {{ project_path }}/.env && sed -i '1s/^/export const environment = \n/' {{ project_path }}/.env
-      register: envConfig
+    # - name: Generate .env
+    #   shell: cat {{root_path}}/data2.json | jq '.data' > {{ project_path }}/.env && sed -i '1s/^/export const environment = \n/' {{ project_path }}/.env
+    #   register: envConfig
+    # - debug: msg=" cred {{ envConfig }} "
+
+    - name: generate .env 
+      shell: cat {{ root_path }}/data2.json | {{ project_path }}/apps/scripts/json2env.sh > {{ project_path }}/.env
+      register: envConfig 
     - debug: msg=" cred {{ envConfig }} "
+
     - name: Change directory
       shell: chdir {{project_path}}
     - name: Fetch pm2 config file
