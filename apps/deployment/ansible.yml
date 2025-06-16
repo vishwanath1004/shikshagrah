@@ -22,7 +22,7 @@
     - name: Update npm
       shell: cd {{project_path}} && npm i --force
     - name: Set permission
-      shell: chmod 744 {{ project_path }}/src/scripts/json2env.sh
+      shell: chmod 744 {{ project_path }}/apps/scripts/json2env.sh
     - name: Generate .env
       shell: cat {{root_path}}/data2.json | jq '.data' > {{ project_path }}/src/environments/environment.ts && sed -i '1s/^/export const environment = \n/' {{ project_path }}/src/environments/environment.ts
       register: envConfig
