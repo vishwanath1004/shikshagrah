@@ -24,6 +24,7 @@ export const signin = async ({
 }: LoginParams): Promise<any> => {
   const apiUrl: string = `${API_ENDPOINTS.accountLogin}`;
   console.log('username:', username);
+  console.log('apiUrl:', apiUrl);
   const isMobile = /^[6-9]\d{9}$/.test(username);
   const requestBody: any = {
     identifier: username,

@@ -1,7 +1,7 @@
 import ForgotPassword from '../../app/forgetpassword/page';
 
 const baseurl = process.env.NEXT_PUBLIC_BASE_URL;
-
+console.log('Base URL:', baseurl,"process.env.NEXT_PUBLIC_BASE_URL", process.env.NEXT_PUBLIC_BASE_URL);
 export const API_ENDPOINTS = {
   contentRead: (doId: string) =>
     `${baseurl}/api/content/v1/read/${doId}?fields=artifactUrl`,
@@ -14,7 +14,7 @@ export const API_ENDPOINTS = {
   authLogout: `${baseurl}/account/auth/logout`,
   userAuth: `${baseurl}/user/auth`,
 
-  accountLogin: `${baseurl}/user/v1/account/login`,
+  accountLogin: `${baseurl}/interface/v1/account/login`,
   sendOtp: `${baseurl}/user/v1/account/registrationOtp`,
   userProfileRead: `${baseurl}/user/v1/user/read`,
   resetPassword: `${baseurl}/user/v1/account/changePassword`,
