@@ -1,86 +1,92 @@
-import 'reflect-metadata';
-import React, { useEffect, useRef } from 'react';
-import { getTelemetryEvents, handleExitEvent } from '../utils/Helper';
+import React, { useRef, useEffect } from 'react';
+import { getTelemetryEvents } from '../../services/TelemetryService';
+import { handleExitEvent } from '../utils/Helper';
 
 interface PlayerConfigProps {
   playerConfig: any;
+  relatedData?: any;
+  configFunctionality?: any;
 }
 
-const SunbirdEpubPlayer = ({ playerConfig }: PlayerConfigProps) => {
-  const sunbirdEpubPlayerRef = useRef<HTMLDivElement | null>(null);
+const basePath = process.env.NEXT_PUBLIC_ASSETS_CONTENT || '/sbplayer';
+
+const SunbirdEpubPlayer = ({
+  playerConfig,
+  relatedData: { courseId, unitId, userId },
+  configFunctionality,
+}: PlayerConfigProps) => {
+  const sunbirdEpubPlayerRef = useRef<HTMLIFrameElement | null>(null);
 
   useEffect(() => {
-    const jqueryScript = document.createElement('script');
-    jqueryScript.src = 'https://code.jquery.com/jquery-3.6.0.min.js';
-    jqueryScript.async = true;
-    document.body.appendChild(jqueryScript);
+    const playerElement: any = sunbirdEpubPlayerRef.current;
+    if (playerElement) {
+      const originalSrc = playerElement.src;
+      playerElement.src = '';
+      playerElement.src = originalSrc;
 
-    // Dynamically load the Sunbird EPUB Player script and CSS from CDN
-    const script = document.createElement('script');
-    script.src =
-      'https://cdn.jsdelivr.net/npm/@project-sunbird/sunbird-epub-player-web-component@1.4.0/sunbird-epub-player.js';
-    script.async = true;
-    document.body.appendChild(script);
+      const handleLoad = () => {
+        setTimeout(() => {
+          if (
+            playerElement.contentWindow &&
+            playerElement.contentWindow.setData
+          ) {
+            // playerElement.contentWindow.setData(playerConfig);
+            const epubElement = document.createElement('sunbird-epub-player');
+            epubElement.setAttribute(
+              'player-config',
+              JSON.stringify(playerConfig)
+            );
+            epubElement.addEventListener('playerEvent', (event: any) => {
+              if (event?.detail?.edata?.type === 'EXIT') {
+                event.preventDefault();
+                handleExitEvent();
+              }
+            });
+            epubElement.addEventListener(
+              'telemetryEvent',
+              async (event: any) => {
+                console.log('On telemetryEvent', event);
+                try {
+                  await getTelemetryEvents(event.detail, 'epub', {
+                    courseId,
+                    unitId,
+                    userId,
+                    configFunctionality,
+                  });
+                } catch (error) {
+                  console.error('Error submitting assessment:', error);
+                }
+              }
+            );
 
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href =
-      'https://cdn.jsdelivr.net/npm/@project-sunbird/sunbird-epub-player-web-component@1.4.0/styles.css';
-    link.className = 'sunbird-epub-player-styles'; // Add a class for identification
-    document.head.appendChild(link);
+            const myPlayer =
+              playerElement.contentDocument.getElementById('my-player');
+            if (myPlayer) {
+              myPlayer.appendChild(epubElement);
+            }
+          }
+        }, 200);
+      };
 
-    const playerElement = sunbirdEpubPlayerRef.current;
+      playerElement.addEventListener('load', handleLoad);
 
-    const handlePlayerEvent = (event: any) => {
-      console.log('Player Event', event.detail);
-      if (event?.detail?.edata?.type === 'EXIT') {
-        handleExitEvent();
-      }
-    };
-    const handleTelemetryEvent = (event: any) => {
-      console.log('Telemetry Event', event.detail);
-      getTelemetryEvents(event.detail, 'epub');
-    };
-
-    // Ensure the script has loaded before adding event listeners
-    script.onload = () => {
-      playerElement?.addEventListener('playerEvent', handlePlayerEvent);
-      playerElement?.addEventListener('telemetryEvent', handleTelemetryEvent);
-    };
-
-    return () => {
-      // Cleanup event listeners
-      playerElement?.removeEventListener('playerEvent', handlePlayerEvent);
-      playerElement?.removeEventListener(
-        'telemetryEvent',
-        handleTelemetryEvent
-      );
-
-      // Remove the script element
-      if (document.body.contains(script)) {
-        document.body.removeChild(script);
-      }
-
-      // Remove the stylesheet
-      const styleLink = document.head.querySelector(
-        '.sunbird-epub-player-styles'
-      ) as HTMLLinkElement;
-      if (styleLink) {
-        document.head.removeChild(styleLink);
-      }
-    };
-  }, []);
+      return () => {
+        playerElement.removeEventListener('load', handleLoad);
+      };
+    }
+  }, [playerConfig]);
 
   return (
-    <div className="player-grid" style={{ height: '100vh' }}>
-      {/* @ts-ignore */}
-      <sunbird-epub-player
-        player-config={JSON.stringify(playerConfig)}
-        ref={sunbirdEpubPlayerRef}
-      >
-        {/* @ts-ignore */}
-      </sunbird-epub-player>
-    </div>
+    <iframe
+      ref={sunbirdEpubPlayerRef}
+      id="contentPlayer"
+      title="Content Player"
+      src={`${basePath}/libs/sunbird-epub-player/index.html?webview=true`}
+      aria-label="Content Player"
+      style={{ border: 'none' }}
+      width={'100%'}
+      height={'100%'}
+    ></iframe>
   );
 };
 

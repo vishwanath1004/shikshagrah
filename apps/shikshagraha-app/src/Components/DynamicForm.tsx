@@ -92,6 +92,8 @@ const DynamicForm = ({
   const [usernameError, setUsernameError] = useState('');
   const [isUsernameValid, setIsUsernameValid] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string[]>>({});
+  const [errorButton, setErrorButton] = useState(false);
+
   const isValidEmail = (email: string) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   };
@@ -99,8 +101,62 @@ const DynamicForm = ({
   const isValidMobile = (mobile: string) => {
     return /^[6-9]\d{9}$/.test(mobile);
   };
+  const getRegistrationCode = (formData) => {
+    const config = schema.meta?.registrationCodeConfig || {
+      name: schema.meta?.registrationCodeConfig,
+    };
+    console.log('schema true', schema);
+    const isShikshalokam = schema.meta?.isShikshalokam;
+    // const isShikshalokam = true;
+    console.log('isShikshalokam', isShikshalokam);
+    console.log('Config:', config);
+    console.log('FormData:', formData);
+    console.log('FormData keys:', Object.keys(formData));
+    const field = formData[config.name];
+    console.log('Field value:', field);
+    formData['registration_code'] = formData[config.name];
+    if (isShikshalokam) {
+      formData.registration_code = formData['Registration Code'];
+      formData['Registration Code'] = formData.registration_code;
+      console.log('Registration11 Code:', formData.registration_code);
+      formData.registration_code = {
+        externalId: formData['Registration Code'],
+      };
+      console.log(formData.registration_code.externalId); // 'bbb'
+
+      if (!formData.registration_code) {
+        throw new Error('Registration code is required for shikshalokam');
+      }
+      return formData.registration_code;
+    } else {
+      const regConfig = schema.meta?.registrationCodeConfig;
+
+      if (!regConfig?.name) {
+        throw new Error('Registration code configuration is invalid');
+      }
+
+      const fieldValue = formData[regConfig.name];
+      const valueKey = regConfig.value_ref || 'externalId';
+
+      if (typeof fieldValue === 'object') {
+        return fieldValue[valueKey];
+      }
+      return fieldValue;
+    }
+    // if (!field) return '';
+
+    // // Get the value reference (default to 'externalId' if not specified)
+    // const valueKey = config.value_ref || 'externalId';
+
+    // // Handle both object and string values
+    // if (typeof field === 'object') {
+    //   return field[valueKey] || '';
+    // }
+    // return field;
+  };
   //custom validation on formData for learner fields hide on dob
   useEffect(() => {
+    setErrorButton(false);
     if (formData?.dob) {
       let age = calculateAgeFromDate(formData?.dob);
       let oldFormSchema = formSchema;
@@ -851,7 +907,7 @@ const DynamicForm = ({
         setIsUsernameValid(false);
         return;
       }
-
+      setIsUsernameValid(false);
       try {
         const response = await axios.get(
           `${API_ENDPOINTS.checkUser(username)}`,
@@ -865,11 +921,17 @@ const DynamicForm = ({
         if (response?.data?.message === 'Username is already taken') {
           setErrorMessage(response?.data?.message);
           setShowError(true);
+          setErrorButton(true);
           setAlertSeverity('error');
           setIsUsernameValid(false);
+          setTimeout(() => {
+            setShowError(false);
+          }, 8000);
         } else {
           setErrorMessage('');
-          setShowError(true);
+          setErrorButton(false);
+          setShowError(false);
+
           setIsUsernameValid(true);
         }
       } catch (error) {
@@ -940,9 +1002,9 @@ const DynamicForm = ({
           );
         }
       }
-
+      setIsUsernameValid(false);
       // Check username availability if username changed
-      if (usernameChanged) {
+      if (formData.Username) {
         checkUsernameAvailability(formData.Username);
       }
 
@@ -1249,6 +1311,7 @@ const DynamicForm = ({
     return isValid;
   };
   const handleSendOtp = async () => {
+    setErrorButton(false);
     const customFields = Object.entries(fieldIdMapping).flatMap(
       ([name, fieldId]) => {
         let fieldValue = formData[name] ?? '';
@@ -1291,7 +1354,9 @@ const DynamicForm = ({
     );
 
     // const userName = formData.firstName;
+    const registrationCode = getRegistrationCode(formData);
 
+    console.log('registrationCode', registrationCode);
     let otpPayload;
     const hasMobile = !!formData.mobile?.trim(); // Checks if user entered any mobile number
     const isValidMobile = /^[6-9]\d{9}$/.test(formData.mobile?.trim() ?? '');
@@ -1305,7 +1370,7 @@ const DynamicForm = ({
       ...(hasMobile && { phone_code: '+91' }),
       password: formData.password,
       // registration_code: 'blr',
-      registration_code: formData.District.externalId, // Using default value as per your curl example
+      registration_code: formData.registration_code.externalId, // Using default value as per your curl example
     };
 
     console.log('1331 payload', otpPayload);
@@ -1324,15 +1389,21 @@ const DynamicForm = ({
     } else {
       if (registrationResponse?.message === 'INVALID_ORG_registration_code') {
         setShowError(true);
+        setErrorButton(true);
         setAlertSeverity('error');
         setErrorMessage('Invalid Organisation');
+        setTimeout(() => {
+          setShowError(false);
+        }, 8000);
       } else {
         setShowError(true);
+        setErrorButton(true);
         setAlertSeverity('error');
         setErrorMessage(registrationResponse.message);
+        setTimeout(() => {
+          setShowError(false);
+        }, 8000);
       }
-     
-      
     }
   };
   const handleRegister = async (otp) => {
@@ -1362,6 +1433,8 @@ const DynamicForm = ({
     // const userName = formData.firstName;
     const isMobile = /^[6-9]\d{9}$/.test(formData.mobile);
     console.log(formData.Roles, 'roles');
+    const registrationCode = getRegistrationCode(formData);
+    console.log('registrationCode create', registrationCode);
     const payload = {
       name:
         formData.firstName + (formData.lastName ? ` ${formData.lastName}` : ''),
@@ -1375,7 +1448,7 @@ const DynamicForm = ({
       block: formData.Block?._id ?? '',
       cluster: formData.Cluster?._id ?? '',
       school: formData.School?._id ?? '',
-      registration_code: formData.District?.externalId ?? '',
+      registration_code: formData.registration_code.externalId ?? '',
       professional_role: localStorage.getItem('role'),
       professional_subroles: getSubRoleExternalIds(),
       otp: Number(otp),
@@ -1422,8 +1495,12 @@ const DynamicForm = ({
     } else {
       setShowError(true);
       setAlertSeverity('error');
+      setErrorButton(true);
       console.log('registrationResponse', registrationResponse);
       setErrorMessage(registrationResponse.data.message);
+      setTimeout(() => {
+        setShowError(false);
+      }, 8000);
     }
   };
 
@@ -1447,7 +1524,11 @@ const DynamicForm = ({
 
         if (tenantResponse?.result?.status === 'archived') {
           setShowError(true);
+          setErrorButton(true);
           setErrorMessage('The user is decativated please contact admin');
+          setTimeout(() => {
+            setShowError(false);
+          }, 8000);
           return;
         } else {
           if (tenantResponse?.result?.tenantData?.[0]?.tenantId) {
@@ -1485,9 +1566,13 @@ const DynamicForm = ({
                 router.push(redirectUrl);
               } else {
                 setShowError(true);
+                setErrorButton(true);
                 setErrorMessage(
                   'The user does not belong to the same organization.'
                 );
+                setTimeout(() => {
+                  setShowError(false);
+                }, 8000);
               }
             }
           }
@@ -1496,11 +1581,19 @@ const DynamicForm = ({
         // Check rootOrgId and route or show error
       } else {
         setShowError(true);
+        setErrorButton(true);
         setErrorMessage('Login failed. Invalid Username or Password.');
+        setTimeout(() => {
+          setShowError(false);
+        }, 8000);
       }
     } catch (error) {
       setShowError(true);
+      setErrorButton(true);
       setErrorMessage(error?.message ?? 'Login failed. Please try again.');
+      setTimeout(() => {
+        setShowError(false);
+      }, 8000);
     } finally {
       // setLoading(false);
     }
@@ -1524,6 +1617,16 @@ const DynamicForm = ({
     );
   };
   console.log('form', formData, validator);
+  console.log({
+    errorButton,
+    firstName: formData?.firstName,
+    password: formData?.password,
+    confirm: formData?.confirm_password,
+    emailOrMobile: formData?.email || formData?.mobile,
+    subRoleValid: formData?.['Sub-Role'] && formData['Sub-Role'].length > 0,
+    validationErrors: hasValidationErrors(),
+  });
+
   return (
     <>
       {errorMessage && showError && (
@@ -1568,8 +1671,8 @@ const DynamicForm = ({
           >
             <Button
               onClick={handleSendOtp}
-              // onClick={handleRegister}
               disabled={
+                errorButton ||
                 !formData?.firstName ||
                 !formData?.password ||
                 (!formData?.email && !formData?.mobile) ||
@@ -1578,6 +1681,7 @@ const DynamicForm = ({
                 !formData.Role ||
                 !formData?.udise ||
                 !formData?.Udise ||
+                !formData.Username ||
                 !isUsernameValid ||
                 hasValidationErrors() ||
                 (formData.Role !== 'parents' &&

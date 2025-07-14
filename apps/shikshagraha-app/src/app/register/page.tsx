@@ -3,7 +3,6 @@ import { useEffect, useState, useRef } from 'react';
 import { generateRJSFSchema } from '../../utils/generateSchemaFromAPI';
 import DynamicForm from '../../Components/DynamicForm';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-
 import {
   Box,
   Button,
@@ -11,6 +10,7 @@ import {
   Typography,
   createTheme,
   ThemeProvider,
+  CircularProgress,
 } from '@mui/material';
 import {
   fetchRoleData,
@@ -33,26 +33,82 @@ export default function Register() {
   const [rolesList, setRolesList] = useState<any[]>([]);
   const [subRoles, setSubRoles] = useState<any[]>([]);
   const previousRole = useRef<string | null>(null);
+  const [displayName, setDisplayName] = useState('');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const currentDomain = 'shikshagraha-qa.tekdinext.com';
-      localStorage.setItem('origin', currentDomain);
-      setDomain(currentDomain);
+      const hostname = window.location.hostname;
+      const origin = window.location.origin;
+      localStorage.setItem('origin', origin);
+      const parts = hostname.split('.');
+
+      const skipList = [
+        'app',
+        'www',
+        'dev',
+        'staging',
+        'tekdinext',
+        'org',
+        'com',
+        'net',
+      ];
+
+      // Step 1: Find the most likely base domain part
+      const domainPart =
+        parts.find((part) => !skipList.includes(part.toLowerCase())) ||
+        'default';
+
+      // Step 2: Remove suffixes like -qa, -dev, etc. if present
+      const knownSuffixes = ['-qa', '-dev', '-staging'];
+      let coreDomain = knownSuffixes.reduce((name, suffix) => {
+        return name.endsWith(suffix) ? name.replace(suffix, '') : name;
+      }, domainPart);
+
+      // Step 3: Map or format display name
+      const displayName = toPascalCase(
+        localStorage.getItem('tenantCode') ?? ''
+      );
+      setDisplayName(displayName);
+
+      setDisplayName(displayName ? displayName : '');
+      if (coreDomain === 'shikshagrah') {
+        coreDomain = 'shikshagraha';
+      }
+      // localStorage.setItem('origin', coreDomain);
     }
   }, []);
+  const toPascalCase = (str: string): string => {
+    return str
+      .toLowerCase()
+      .replace(/(^\w|[^a-zA-Z0-9]+(\w))/g, (_, first, second) =>
+        (first || second).toUpperCase()
+      );
+  };
+
+  // const formatDisplayName = (domain: string): string => {
+  //   // Custom rules per domain (if needed)
+  //   if (domain === 'shikshagraha') return 'Shikshagraha';
+  //   if (domain === 'shikshalokam') return 'Shikshalokam';
+  //   if (domain === 'shikshagrah') return 'Shikshagraha';
+  //   // Default: Capitalize first letter
+  //   return domain.charAt(0).toUpperCase() + domain.slice(1);
+  // };
 
   useEffect(() => {
     const fetchSchema = async () => {
       try {
         setLoading(true);
-
+        const origin = localStorage.getItem('origin') || '';
+        const isShikshalokam = origin.includes('shikshalokam');
+        console.log('isShikshalokam', isShikshalokam);
         const rolesResponse = await fetchRoleData();
         const rolesData = rolesResponse?.result ?? [];
         setRolesList(rolesData);
 
         const response = await schemaRead();
         const fields = response?.result?.data?.fields?.result ?? [];
+        const meta = response?.result?.data?.fields?.meta ?? {};
+        console.log('meta', meta);
         if (fields.length === 0) {
           throw new Error('No form fields received from API');
         }
@@ -62,13 +118,28 @@ export default function Register() {
         if (selectedRoleObj) {
           const subrolesResponse = await getSubroles(selectedRoleObj._id);
           subrolesData = subrolesResponse.result ?? [];
-          setSubRoles(subrolesData);
+          // setSubRoles(subrolesData);
         }
 
         const { schema, uiSchema, fieldNameToFieldIdMapping } =
           generateRJSFSchema(fields, selectedRoleObj, rolesData, subrolesData);
+        if (subrolesData?.length === 0) {
+          delete schema.properties?.['Sub-Role'];
+          delete uiSchema?.['Sub-Role'];
+        }
 
-        setFormSchema(schema);
+        console.log('schema', schema);
+        const registrationCodeConfig = meta.registration_code;
+
+        setFormSchema({
+          ...schema,
+          meta: {
+            ...schema.meta,
+            isShikshalokam,
+            registrationCodeConfig,
+          },
+        });
+        // setFormSchema(schema);
         setUiSchema(uiSchema);
         setFieldNameToFieldIdMapping(fieldNameToFieldIdMapping);
       } catch (error) {
@@ -153,7 +224,7 @@ export default function Register() {
               },
             }}
           >
-            Shikshagraha
+            {displayName}
           </Typography>
         </Grid>
       </Grid>
@@ -187,52 +258,64 @@ export default function Register() {
           <StaticHeader />
           <Box
             sx={{
-              mx: 'auto',
-              width: '100%',
-              maxWidth: {
-                xs: '90%',
-                sm: 500,
-                md: 600,
+              ml: 'auto',
+              mr: 'auto',
+              width: {
+                xs: '90vw',
+                md: '50vw',
               },
-              mt: {
-                xs: 2,
-                sm: 4,
-              },
-              px: {
-                xs: 2,
-                sm: 3,
+              display: 'flex',
+              flexDirection: 'column',
+              // bgcolor: '#fff',
+              p: {
+                xs: '20px',
+                md: '40px',
               },
             }}
           >
-            <Typography
-              variant="h5"
-              sx={{
-                color: '#572E91',
-                fontWeight: 'bold',
-                mb: 2,
-                textAlign: 'center',
-                fontSize: {
-                  xs: '1.2rem',
-                  sm: '1.5rem',
-                },
-              }}
-            >
-              Welcome to Shikshagraha
-            </Typography>
-
-            {formSchema && (
-              <DynamicForm
-                schema={formSchema}
-                uiSchema={uiSchema}
-                SubmitaFunction={handleSubmit}
-                hideSubmit={false}
-                onChange={({ formData }) => {
-                  if (formData.Role) {
-                    setFormData((prev) => ({ ...prev, 'Sub-Role': [] }));
-                  }
+            {loading && (
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  height: '200px',
                 }}
-                fieldIdMapping={fieldNameToFieldIdMapping}
-              />
+              >
+                <CircularProgress sx={{ color: '#572E91' }} />
+              </Box>
+            )}
+            {formSchema && (
+              <>
+                <Typography
+                  variant="h5"
+                  sx={{
+                    color: '#572E91',
+                    fontWeight: 'bold',
+                    mb: 2,
+                    textAlign: 'center',
+                    fontSize: {
+                      xs: '1.2rem',
+                      sm: '1.5rem',
+                    },
+                  }}
+                >
+                  Welcome to {displayName}
+                </Typography>
+                <DynamicForm
+                  schema={formSchema}
+                  uiSchema={uiSchema}
+                  SubmitaFunction={handleSubmit}
+                  hideSubmit={false}
+                  onChange={({ formData }) => {
+                    // if (formData.Role) {
+                    //   setFormData((prev) => ({ ...prev, 'Sub-Role': [] }));
+                    // }
+                    setFormData(formData);
+                  }}
+                  fieldIdMapping={fieldNameToFieldIdMapping}
+                />
+              </>
             )}
           </Box>
         </Box>

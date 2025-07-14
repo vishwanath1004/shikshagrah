@@ -73,8 +73,14 @@ const OTPDialog: React.FC<OTPDialogProps> = ({
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+
+    const minPart = mins > 0 ? `${mins} minute${mins > 1 ? 's' : ''}` : '';
+    const secPart = secs > 0 ? `${secs} second${secs > 1 ? 's' : ''}` : '';
+
+    // Combine parts with space if both are present
+    return [minPart, secPart].filter(Boolean).join(' ');
   };
+
   const handleChange = (index: number, value: string) => {
     if (!/^\d?$/.test(value)) return;
     const newOtp = [...otp];
@@ -217,6 +223,7 @@ const OTPDialog: React.FC<OTPDialogProps> = ({
             disabled={resendTimer > 0 || loading}
             startIcon={<Refresh fontSize="small" />}
             sx={{
+              textTransform: 'none',
               minWidth: 0,
               color: resendTimer > 0 ? 'text.disabled' : 'primary.main',
               '&:hover': {

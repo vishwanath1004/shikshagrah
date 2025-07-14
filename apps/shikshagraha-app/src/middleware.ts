@@ -15,6 +15,12 @@ export function middleware(request: { nextUrl: { clone: () => any } }) {
     return NextResponse.rewrite(url);
   }
 
+  if (url.pathname.startsWith('/sbplayer')) {
+    url.hostname = 'localhost';
+    url.port = '4108';
+    return NextResponse.rewrite(url);
+  }
+
   if (url.pathname.startsWith('/pwa')) {
     url.hostname = 'localhost';
     url.port = '4200';

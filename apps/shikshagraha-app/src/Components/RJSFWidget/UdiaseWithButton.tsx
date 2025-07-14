@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useState, useEffect, useRef } from 'react';
-import { TextField, Button, Box } from '@mui/material';
+import { TextField, Button, Box, Typography } from '@mui/material';
 import { WidgetProps } from '@rjsf/utils';
 import { fetchContentOnUdise } from '../../services/LoginService';
 
@@ -71,6 +71,7 @@ const UdiaseWithButton = ({
       }
 
       const locationInfo = response.result[0];
+
       const sampleResponse = {
         udise: localValue,
         School: {
@@ -113,50 +114,53 @@ const UdiaseWithButton = ({
   };
 
   return (
-    <Box display="flex" flexDirection="column" gap={1}>
-      <Box display="flex" alignItems="center" gap={1}>
-        <TextField
-          fullWidth
-          id={id}
-          label={
-            <>
-              {label} <span style={{ color: 'red' }}>*</span>
-            </>
-          }
-          value={localValue}
-          required={required}
-          disabled={disabled || readonly}
-          onChange={handleChange}
-          onBlur={handleBlur}
-          onFocus={handleFocus}
-          placeholder={placeholder}
-          error={displayErrors.length > 0 || !!errorMessage}
-          helperText={errorMessage || displayErrors.join(', ')}
-          variant="outlined"
-          size="small"
-          InputProps={{
-            sx: {
-              '& .MuiInputBase-input': {
-                padding: '10px 12px',
+    <Box>
+      <Box display="flex" flexDirection="row" alignItems="flex-start" gap={1}>
+        {/* TextField (without helper text pushing layout) */}
+        <Box sx={{ flex: 1 }}>
+          <TextField
+            fullWidth
+            id={id}
+            label={
+              <>
+                {label} <span style={{ color: 'red' }}>*</span>
+              </>
+            }
+            value={localValue}
+            required={required}
+            disabled={disabled || readonly}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            onFocus={handleFocus}
+            placeholder={placeholder}
+            error={displayErrors.length > 0 || !!errorMessage}
+            variant="outlined"
+            size="small"
+            InputProps={{
+              sx: {
+                '& .MuiInputBase-input': {
+                  padding: '10px 12px',
+                  fontSize: '12px',
+                },
+              },
+            }}
+            InputLabelProps={{
+              sx: {
                 fontSize: '12px',
+                '&.Mui-focused': {
+                  transform: 'translate(14px, -6px) scale(0.75)',
+                  color: '#582E92',
+                },
+                '&.MuiInputLabel-shrink': {
+                  transform: 'translate(14px, -6px) scale(0.75)',
+                  color: '#582E92',
+                },
               },
-            },
-          }}
-          InputLabelProps={{
-            sx: {
-              fontSize: '12px',
-              '&.Mui-focused': {
-                transform: 'translate(14px, -6px) scale(0.75)',
-                color: '#582E92',
-              },
-              '&.MuiInputLabel-shrink': {
-                transform: 'translate(14px, -6px) scale(0.75)',
-                color: '#582E92',
-              },
-            },
-          }}
-        />
+            }}
+          />
+        </Box>
 
+        {/* Button */}
         <Button
           variant="contained"
           size="small"
@@ -174,12 +178,22 @@ const UdiaseWithButton = ({
             '&:hover': {
               bgcolor: '#543E98',
             },
-            width: '20%',
+            height: '40px',
+            mt: '1px', // slight vertical alignment tweak
           }}
         >
           Fetch
         </Button>
       </Box>
+      {/* Show helper/error text below both elements */}
+
+      {(displayErrors.length > 0 || errorMessage) && (
+        <Box mt={0.5} ml={0.5}>
+          <Typography variant="caption" color="error" sx={{ fontSize: '11px' }}>
+            {errorMessage || displayErrors.join(', ')}
+          </Typography>
+        </Box>
+      )}
     </Box>
   );
 };

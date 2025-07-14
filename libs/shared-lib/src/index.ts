@@ -21,6 +21,7 @@ export * from './lib/Search/CommonSearch';
 export * from './lib/Tabs/CommonTabs';
 export * from './lib/Collapse/CommonAccordian';
 export * from './lib/Drawer/CommonDrawer';
+export * from './lib/Card/CommonCard';
 // export * from './lib/Services/LoginService';
 // export * from './lib/Services/RestClient';
 // export * from './lib/Services/Interceptor';

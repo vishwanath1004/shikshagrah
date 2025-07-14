@@ -6,11 +6,11 @@ export const URL_CONFIG = {
     HIERARCHY_FEILDS: 'instructions,outcomeDeclaration',
   },
   API: {
-    CONTENT_READ: `${process.env.NEXT_PUBLIC_SSUNBIRD_BASE_URL}/api/content/v1/read/`,
-    HIERARCHY_API: `${process.env.NEXT_PUBLIC_SSUNBIRD_BASE_URL}/action/questionset/v2/hierarchy/`,
-    QUESTIONSET_READ: `${process.env.NEXT_PUBLIC_SSUNBIRD_BASE_URL}/action/questionset/v2/read/`,
-    COMPOSITE_SEARCH: `${process.env.NEXT_PUBLIC_SSUNBIRD_BASE_URL}/action/composite/v3/search`,
-    CONTENT_HIERARCHY: `${process.env.NEXT_PUBLIC_SSUNBIRD_BASE_URL}/action/content/v3/hierarchy`,
+    CONTENT_READ: `${process.env.NEXT_PUBLIC_MIDDLEWARE_URL}/api/content/v1/read/`,
+    HIERARCHY_API: `${process.env.NEXT_PUBLIC_MIDDLEWARE_URL}/action/questionset/v2/hierarchy/`,
+    QUESTIONSET_READ: `${process.env.NEXT_PUBLIC_MIDDLEWARE_URL}/action/questionset/v2/read/`,
+    COMPOSITE_SEARCH: `${process.env.NEXT_PUBLIC_MIDDLEWARE_URL}/action/composite/v3/search`,
+    CONTENT_HIERARCHY: `${process.env.NEXT_PUBLIC_MIDDLEWARE_URL}/action/content/v3/hierarchy`,
   },
 };
 
@@ -107,18 +107,33 @@ export const MIME_TYPE = {
   INTERACTIVE_MIME_TYPE: [
     'application/vnd.ekstep.h5p-archive',
     'application/vnd.ekstep.html-archive',
+    'application/vnd.ekstep.ecml-archive',
   ],
 };
 
-let userName = 'arif';
-if (typeof window !== 'undefined' && window.localStorage) {
-  userName = localStorage.getItem('userName') || '';
-}
-
-const DeviceId = '12345';
-
-export const V2PlayerConfig: PlayerConfig = {
-  context: {
+export const getTelemetryConfig = (): Context => {
+  let localStorageData = {
+    userName: '',
+    accToken: '',
+    tenantId: '',
+    tenantCode: '',
+    did: '',
+    sid: '',
+    uid: '',
+  };
+  if (typeof window !== 'undefined' && window.localStorage) {
+    const ls = window.localStorage;
+    localStorageData = {
+      userName: ls.getItem('userIdName') ?? '',
+      accToken: ls.getItem('token') ?? '',
+      sid: ls.getItem('token') ?? '',
+      uid: ls.getItem('userId') ?? '',
+      tenantId: ls.getItem('tenantId') ?? '',
+      tenantCode: ls.getItem('channelId') ?? '',
+      did: ls.getItem('did') ?? '',
+    };
+  }
+  return {
     mode: 'play',
     partner: [],
     pdata: {
@@ -127,18 +142,20 @@ export const V2PlayerConfig: PlayerConfig = {
       pid: 'admin-portal',
     },
     contentId: '',
-    sid: '',
-    uid: '',
     timeDiff: -0.089,
-    channel: process.env.NEXT_PUBLIC_CHANNEL_ID || '',
-    tags: [process.env.NEXT_PUBLIC_CHANNEL_ID || ''],
-    did: DeviceId,
-    contextRollup: { l1: process.env.NEXT_PUBLIC_CHANNEL_ID || '' },
+    channel: localStorageData.tenantCode,
+    tags: [localStorageData.tenantCode],
+    contextRollup: { l1: localStorageData.tenantCode },
     objectRollup: {},
-    userData: { firstName: userName, lastName: '' },
+    userData: { firstName: localStorageData.userName, lastName: '' },
     host: '',
     endpoint: '/v1/telemetry',
-  },
+    ...localStorageData,
+  };
+};
+
+export const V2PlayerConfig: PlayerConfig = {
+  context: getTelemetryConfig(),
   config: {
     showEndPage: false,
     endPage: [{ template: 'assessment', contentType: ['SelfAssess'] }],
@@ -180,6 +197,7 @@ export const V1PlayerConfig: PlayerConfig = {
     ],
     showStartPage: true,
     host: '',
+    endpoint: '/v1/telemetry',
     overlay: {
       enableUserSwitcher: true,
       showOverlay: true,
@@ -220,29 +238,6 @@ export const V1PlayerConfig: PlayerConfig = {
     },
     enableTelemetryValidation: false,
   },
-  context: {
-    mode: 'play',
-    // partner: [],
-    pdata: {
-      id: 'pratham.admin.portal',
-      ver: '1.0.0',
-      pid: 'admin-portal',
-    },
-    contentId: '',
-    sid: '',
-    uid: '',
-    timeDiff: -1.129,
-    contextRollup: {},
-    channel: process.env.NEXT_PUBLIC_CHANNEL_ID || '',
-    did: '',
-    dims: [],
-    tags: [process.env.NEXT_PUBLIC_CHANNEL_ID || ''],
-    app: [process.env.NEXT_PUBLIC_CHANNEL_ID || ''],
-    cdata: [],
-    userData: {
-      firstName: userName,
-      lastName: '',
-    },
-  },
+  context: getTelemetryConfig(),
   data: {},
 };

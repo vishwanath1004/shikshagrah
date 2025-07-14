@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 //@ts-nocheck
 'use client';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Box, Fab, Typography, Button } from '@mui/material';
 import { ContentCard, CommonTabs, Layout, Circular } from '@shared-lib';
 import { ContentSearch } from '../services/Search';
@@ -18,6 +18,7 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { trackingData } from '../services/TrackingService';
 import SG_LOGO from '../../public/assests/images/SG_Logo.png';
+
 interface ContentItem {
   name: string;
   gradeLevel: string[];
@@ -42,7 +43,7 @@ export default function Content() {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedContent, setSelectedContent] = useState<any>(null);
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
-  const [limit, setLimit] = useState(4); // Set default limit
+  const [limit, setLimit] = useState(12); // Increased initial limit
   const [offset, setOffset] = useState(0);
   const [hasMoreData, setHasMoreData] = useState(true);
   const [filterValues, setFilterValues] = useState({});
@@ -57,6 +58,8 @@ export default function Content() {
     status: '',
     priority: '',
   });
+  const observer = useRef<IntersectionObserver>();
+  const loadingRef = useRef<HTMLDivElement>(null);
 
   const getCookie = (name: any) => {
     const cookies = document.cookie.split('; ');
@@ -87,13 +90,10 @@ export default function Content() {
     ) => {
       setIsLoading(true);
       try {
-        //@ts-ignore
         let result;
         if (identifier) {
           result = await hierarchyAPI(identifier);
-          //@ts-ignore
           setContentData([result]);
-          // if (result) setContentData([result]);
         } else {
           result =
             type &&
@@ -104,12 +104,10 @@ export default function Content() {
               limit,
               offset
             ));
-          //@ts-ignore
+
           if (!result || result === undefined || result?.length === 0) {
-            setHasMoreData(false); // No more data available
+            setHasMoreData(false);
           } else {
-            // setContentData(result || []);
-            //@ts-ignore
             setContentData((prevData) => [...prevData, ...result]);
             fetchDataTrack(result);
             setHasMoreData(true);
@@ -123,105 +121,126 @@ export default function Content() {
     },
     [identifier]
   );
+
   const fetchDataTrack = async (resultData: any) => {
-    if (!resultData.length) return; // Ensure contentData is available
+    if (!resultData.length) return;
     try {
-      const courseList = resultData.map((item: any) => item.identifier); // Extract all identifiers
+      const courseList = resultData.map((item: any) => item.identifier);
       const userId = localStorage.getItem('userId');
       const userIdArray = userId?.split(',');
-      if (!userId || !courseList.length) return; // Ensure required values exist
-      //@ts-ignore
-      console.log('userIdArray', userIdArray);
+      if (!userId || !courseList.length) return;
+
       const course_track_data = await trackingData(userIdArray, courseList);
 
       if (course_track_data?.data) {
-        //@ts-ignore
         const userTrackData =
           course_track_data.data.find((course: any) => course.userId === userId)
             ?.course ?? [];
         setTrackData(userTrackData);
-        return (
-          course_track_data.data.find((course: any) => course.userId === userId)
-            ?.course ?? []
-        );
       }
     } catch (error) {
       console.error('Error fetching track data:', error);
-    } finally {
-      setIsLoading(false);
     }
   };
+
+  // Set up intersection observer for infinite scroll
+  useEffect(() => {
+    if (!hasMoreData || isLoading) return;
+
+    const observerOptions = {
+      root: null,
+      rootMargin: '20px',
+      threshold: 0.1,
+    };
+
+    const handleObserver = (entries: IntersectionObserverEntry[]) => {
+      const target = entries[0];
+      if (target.isIntersecting) {
+        const newOffset = offset + limit;
+        setOffset(newOffset);
+        const type = tabValue === 0 ? 'Course' : 'Learning Resource';
+        fetchContent(type, searchValue, filterValues, limit, newOffset);
+      }
+    };
+
+    observer.current = new IntersectionObserver(
+      handleObserver,
+      observerOptions
+    );
+    if (loadingRef.current) {
+      observer.current.observe(loadingRef.current);
+    }
+
+    return () => {
+      if (observer.current) {
+        observer.current.disconnect();
+      }
+    };
+  }, [
+    hasMoreData,
+    isLoading,
+    offset,
+    limit,
+    tabValue,
+    searchValue,
+    filterValues,
+    fetchContent,
+  ]);
+
   useEffect(() => {
     const type = tabValue === 0 ? 'Course' : 'Learning Resource';
-    // setContentData([]);
     const cookies = document.cookie.split('; ');
     const subid = cookies
       .find((row) => row.startsWith('subid='))
       ?.split('=')[1];
-    //@ts-ignore
     localStorage.setItem('subId', subid);
-    fetchContent(type, searchValue, filterValues);
+
+    // Reset content and offset when tab or filters change
+    setContentData([]);
+    setOffset(0);
+    setHasMoreData(true);
+    fetchContent(type, searchValue, filterValues, limit, 0);
   }, [tabValue, filterValues]);
 
-  const handleLoadMore = (event: React.MouseEvent) => {
-    event.preventDefault();
-
-    const newOffset = offset + limit;
-    setOffset(newOffset);
-
-    const currentScrollPosition = window.scrollY;
-
-    const type = tabValue === 0 ? 'Course' : 'Learning Resource';
-
-    fetchContent(type, searchValue, filterValues, limit, newOffset).then(() => {
-      setTimeout(() => {
-        window.scrollTo({ top: currentScrollPosition, behavior: 'auto' });
-      }, 0);
-    });
-  };
-
-  const handleAccountClick = (event: React.MouseEvent<HTMLElement>) => {
-    // router.push(`${process.env.NEXT_PUBLIC_LOGINPAGE}`);
-    const LOGIN = process.env.NEXT_PUBLIC_LOGINPAGE;
-    //@ts-ignore
-    window.location.href = LOGIN;
-    localStorage.removeItem('accToken');
-    localStorage.clear();
-  };
-
   const handleSearchClick = async () => {
+    const type = tabValue === 0 ? 'Course' : 'Learning Resource';
+    setContentData([]);
+    setOffset(0);
     if (searchValue.trim()) {
-      const type = tabValue === 0 ? 'Course' : 'Learning Resource';
+      let result = await ContentSearch(
+        type,
+        searchValue,
+        filterValues,
+        limit,
+        0
+      );
 
-      // fetchContent(type, searchValue, filterValues);
-      let result =
-        type &&
-        (await ContentSearch(type, searchValue, filterValues, limit, offset));
-      //@ts-ignore
-      if (!result || result === undefined || result?.length === 0) {
-        setHasMoreData(false);
-      } else {
-        // setContentData(result || []);
-        //@ts-ignore
-        setContentData(result || []);
-        setHasMoreData(true);
-      }
+      setContentData(result || []);
+      setOffset(0);
+      setHasMoreData(result?.length === limit);
     } else {
       setSearchValue('');
       setContentData([]);
-
-      fetchContent(type, searchValue, filterValues);
+      setOffset(0);
+      const type = tabValue === 0 ? 'Course' : 'Learning Resource';
+      fetchContent(type, '', filterValues, limit, 0);
     }
   };
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchValue(event.target.value);
+    const value = event.target.value;
+    setSearchValue(value);
+
+    // If input is cleared, trigger search immediately
+    if (!value.trim()) {
+      handleSearchClick();
+    }
   };
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
-    const type = newValue === 0 ? 'Course' : 'Learning Resource';
     setContentData([]);
+    setOffset(0);
   };
 
   const handleCardClick = async (
@@ -247,10 +266,7 @@ export default function Content() {
         router.push(`/player/${identifier}`);
       } else {
         const result = await hierarchyAPI(identifier);
-        //@ts-ignore
-        const trackable = result?.trackable;
         setSelectedContent(result);
-        console.log('selectedContent', result);
         router.push(`/content-details/${identifier}`);
       }
     } catch (error) {
@@ -259,7 +275,7 @@ export default function Content() {
       setIsLoading(false);
     }
   };
-  ``;
+
   useEffect(() => {
     const handleScroll = () => {
       setShowBackToTop(window.scrollY > 300);
@@ -273,72 +289,45 @@ export default function Content() {
   };
 
   const renderTabContent = () => (
-    <Box
-      sx={{
-        flexGrow: 1,
-
-        // height: { xs: '300px', sm: '400px', md: 'auto' }, // Adjust height for different breakpoints
-        // overflowY: 'auto', // Ensures scrolling only when content overflows
-        // padding: { xs: 2, sm: 3, md: 4 }, // Responsive padding
-      }}
-    >
-      {isLoading ? (
-        <Circular />
-      ) : (
-        <>
-          <Grid container spacing={2} sx={{ mt: 2 }}>
-            {contentData?.map((item) => (
-              <Grid
-                key={item?.identifier}
-                size={{ xs: 6, sm: 6, md: 2, lg: 2 }}
-              >
-                <ContentCard
-                  title={item?.name.trim()}
-                  image={item?.posterImage ? item?.posterImage : SG_LOGO.src}
-                  content={item?.description || '-'}
-                  // subheader={item?.contentType}
-                  actions={item?.contentType}
-                  orientation="vertical"
-                  item={[item]}
-                  TrackData={trackData}
-                  // type={tabValue === 0 ? 'course' : 'content'}
-                  type={tabValue === 0 ? 'Course' : 'Learning Resource'}
-                  onClick={() =>
-                    handleCardClick(item?.identifier, item?.mimeType)
-                  }
-                />
-              </Grid>
-            ))}
+    <Box sx={{ flexGrow: 1 }}>
+      <Grid container spacing={2}>
+        {contentData?.map((item) => (
+          <Grid key={item?.identifier} size={{ xs: 6, sm: 6, md: 2, lg: 2 }}>
+            <ContentCard
+              title={item?.name.trim()}
+              image={item?.posterImage ? item?.posterImage : SG_LOGO.src}
+              content={item?.description || '-'}
+              actions={item?.contentType}
+              orientation="vertical"
+              item={[item]}
+              TrackData={trackData}
+              type={tabValue === 0 ? 'Course' : 'Learning Resource'}
+              onClick={() => handleCardClick(item?.identifier, item?.mimeType)}
+            />
           </Grid>
-          <Box sx={{ textAlign: 'center', mt: 0 }}>
-            {hasMoreData ? (
-              <Button
-                variant="contained"
-                onClick={handleLoadMore}
-                disabled={isLoading}
-              >
-                {isLoading ? 'Loading...' : 'Load More'}
-              </Button>
-            ) : (
-              <Typography variant="body1" color="textSecondary">
-                No more data available
-              </Typography>
-            )}
-          </Box>
-        </>
-      )}
+        ))}
+      </Grid>
+
+      {/* Loading indicator for infinite scroll */}
+      <Box ref={loadingRef} sx={{ textAlign: 'center', py: 4 }}>
+        {isLoading && <Circular />}
+        {!isLoading && !hasMoreData && contentData.length > 0 && (
+          <Typography variant="body1" color="textSecondary">
+            No more content available
+          </Typography>
+        )}
+        {!isLoading && contentData.length === 0 && (
+          <Typography variant="body1" color="textSecondary">
+            No content found
+          </Typography>
+        )}
+      </Box>
     </Box>
   );
 
   const tabs = [
-    {
-      label: 'Courses',
-      content: renderTabContent(),
-    },
-    {
-      label: 'Resource  ',
-      content: renderTabContent(),
-    },
+    { label: 'Courses', content: renderTabContent() },
+    { label: 'Resource', content: renderTabContent() },
   ];
 
   const handleItemClick = (to: string) => {
@@ -349,96 +338,29 @@ export default function Content() {
     { text: 'Home', icon: <CircleIcon fontSize="small" />, to: '/' },
     { text: 'Content', icon: <CircleIcon fontSize="small" />, to: '/content' },
   ];
-  const categoriesItems = [
-    {
-      text: 'Development',
-      icon: <ChevronRightIcon />,
-      to: '/',
-      subCategories: [
-        {
-          text: 'Primary',
-          to: '/education/primary',
-          subCategories: [
-            { text: 'Quantum Mechanics', to: '/science/physics/quantum' },
-            { text: 'Relativity', to: '/science/physics/relativity' },
-          ],
-        },
-        { text: 'Secondary', to: '/education/secondary' },
-      ],
-    },
-    {
-      text: 'Marketing',
-      icon: <ChevronRightIcon />,
-      to: '/page-2',
-      subCategories: [
-        { text: 'Primary', to: '/education/primary' },
-        { text: 'Secondary', to: '/education/secondary' },
-      ],
-    },
-    {
-      text: 'Business Studies',
-      icon: <ChevronRightIcon />,
-      to: '/content',
-      subCategories: [
-        { text: 'Primary', to: '/education/primary' },
-        { text: 'Secondary', to: '/education/secondary' },
-      ],
-    },
-  ];
 
-  // useEffect(() => {
-  //   const init = async () => {
-  //     setIsLoading(true);
-  //     try {
-  //       const result = await fetchContent(filterValues);
-  //       const newContentData = Array.from(
-  //         new Map(result.map((item: any) => [item.identifier, item])).values()
-  //       );
-
-  //       const userTrackData = await fetchDataTrack(newContentData || []);
-  //       setContentData((newContentData as ContentSearchResponse[]) || []);
-  //       setTrackData(userTrackData);
-
-  //       setHasMoreData(
-  //         result?.count > filterValues.offset + newContentData?.length
-  //       );
-  //     } catch (error) {
-  //       console.error(error);
-  //     } finally {
-  //       setIsLoading(false);
-  //     }
-  //   };
-  //   init();
-  // }, [filterValues, fetchContent, fetchDataTrack]);
-
-  //@ts-ignore
-  const handleApplyFilters = async (selectedValues) => {
-    // setFilterValues(selectedValues);
+  const handleApplyFilters = async (selectedValues: any) => {
     setContentData([]);
+    setOffset(0);
     const type = tabValue === 0 ? 'Course' : 'Learning Resource';
-    let result =
-      type &&
-      (await ContentSearch(type, searchValue, selectedValues, limit, offset));
-    //@ts-ignore
-    if (!result || result === undefined || result?.length === 0) {
-      setHasMoreData(false); // No more data available
-    } else {
-      //@ts-ignore
-      setContentData(result || []);
-      setHasMoreData(true);
-    }
-    console.log('Filter selectedValues:', selectedValues);
+    let result = await ContentSearch(
+      type,
+      searchValue,
+      selectedValues,
+      limit,
+      0
+    );
+    setContentData(result || []);
+    setHasMoreData(result?.length === limit);
   };
 
-  //get filter framework
   useEffect(() => {
     fetchFramework();
   }, [router]);
+
   const fetchFramework = async () => {
     try {
-      const url = `${
-        process.env.NEXT_PUBLIC_SSUNBIRD_BASE_URL
-      }/api/framework/v1/read/${localStorage.getItem('frameworkname')}`;
+      const url = `${process.env.NEXT_PUBLIC_SSUNBIRD_BASE_URL}/api/framework/v1/read/atree-framework`;
       const frameworkData = await fetch(url).then((res) => res.json());
       const frameworks = frameworkData?.result?.framework;
       setFrameworkFilter(frameworks);
@@ -446,36 +368,15 @@ export default function Content() {
       console.error('Error fetching board data:', error);
     }
   };
-  const handleHelpClick = () => {
-    // alert('Contact Help Desk at help@shiksha.com');
-    setIsDialogOpen(true);
-  };
-  const handleDialogClose = () => {
-    setIsDialogOpen(false);
-  };
-  const handleChange =
-    (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
-      const value = event.target.value;
-      setIssueData({
-        ...issueData,
-        [field]: value,
-      });
-    };
 
-  const handleBackClick = () => {
-    router.push('/');
-  };
   return (
     <Layout
       showTopAppBar={{
         title: 'Content',
         showMenuIcon: true,
-        // showBackIcon: true,
-        // backIconClick: handleBackClick,
       }}
       isFooter={true}
       showLogo={true}
-      // showBack={true}
       showSearch={{
         placeholder: 'Search content..',
         rightIcon: <SearchIcon />,
@@ -489,13 +390,8 @@ export default function Content() {
           width: '100%',
         },
       }}
-      // showFilter={true}
-      // filter={filter}
-      // frameworkFilter={frameworkFilter}
       onItemClick={handleItemClick}
-      //@ts-ignore
       onApply={handleApplyFilters}
-      // filterValues={filterValues}
     >
       <Box
         sx={{

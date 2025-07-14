@@ -30,7 +30,7 @@ export const Footer: React.FC = () => {
       setValue(currentValue);
     } else {
       // Fallback to startsWith check for nested routes
-      if (pathname.startsWith('/content')) {
+      if (pathname.startsWith('/content')||  pathname?.startsWith('/player')) {
         setValue(1);
       } else if (pathname.startsWith('/ml/project-downloads')) {
         setValue(2);

@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QUML Player web component demo</title>
+
+    <link rel="stylesheet" href="./styles.css" />
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js"
+      integrity="sha512-bLT0Qm9VnAYZDflyKcBaQ2gg0hSYNQrJ8RilYldYQ1FxQYoCLtUjuuRuZo+fjqhx/qtq/1itJ0C2ejDxltZVFg=="
+      crossorigin="anonymous"
+    ></script>
+
+    <style>
+      .player-grid {
+        width: 100%;
+        height: 100vh;
+        margin: 0 auto;
+        display: grid;
+        padding-top: 0rem;
+
+        @media screen and (max-width: 768px) {
+          grid-template-columns: 100%;
+          gap: 0px;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="player-grid" id="my-player"></div>
+    <script type="text/javascript" src="sunbird-quml-player.js"></script>
+    <script type="text/javascript">
+      function findParentIdByIdentifier(data, identifier) {
+          if (data.identifier === identifier) {
+              return data.parent || null;
+          }
+          if (data.children && Array.isArray(data.children)) {
+              for (let child of data.children) {
+                  const parentId = findParentIdByIdentifier(child, identifier);
+                  if (parentId) {
+                      return parentId;
+                  }
+              }
+          }
+          return null;
+      }
+      function setData() {
+        let qumlPlayerConfig=null;
+        let questionListUrl=null;
+        let questionsData=null;
+        if (localStorage.getItem("qumlPlayerObject")) {
+          let jsonObj = JSON.parse(localStorage.getItem("qumlPlayerObject"));
+          qumlPlayerConfig = jsonObj?.qumlPlayerConfig;
+          questionListUrl = jsonObj?.questionListUrl;
+          //alert("in json object "+JSON.stringify( qumlPlayerConfig));
+          //alert("in json object "+questionListUrl);
+          //alert(JSON.parse(localStorage.getItem("qumlPlayerObject")))
+        }
+        if(localStorage.getItem("questions_data")){
+          let jsonObj=JSON.parse(localStorage.getItem("questions_data"));
+          questionsData=jsonObj?.questions_data?.result?.questions;
+          //alert("in json object "+JSON.stringify(questionsData));
+          //alert(JSON.parse(localStorage.getItem("questions_data")));
+        }
+
+        if(qumlPlayerConfig!=null && questionListUrl!=null && questionsData!=null)
+        {
+          //alert("in if ");
+          const playerConfig = qumlPlayerConfig;
+          let sectionContent = qumlPlayerConfig.metadata;
+          const identifierWithoutImg = sectionContent.identifier.replace(
+            ".img",
+            ""
+          );
+          let maxScore = sectionContent?.maxScore;
+          if(!maxScore){
+            maxScore = sectionContent?.outcomeDeclaration?.maxScore?.defaultValue;
+          } 
+          let trackData = [];
+          try{
+          //insert all values
+          for(let i=0;i<questionsData.length;i++){
+            let questionDetail=questionsData[i];
+            const identifier = questionDetail?.identifier;
+            const sectionId = findParentIdByIdentifier(sectionContent, identifier);
+            let sectionName = sectionContent?.children?.find(
+                      (e) => e?.identifier === sectionId
+                    )?.name;
+            let maxscore=questionDetail?.responseDeclaration?.response1?.maxScore
+            if(!maxscore){
+              maxscore=questionDetail?.maxScore
+            }
+            let edata={
+              "item": {
+                "id": questionDetail?.identifier,
+                "title": questionDetail?.editorState?.question,
+                "type": questionDetail?.qType,
+                "maxscore":  maxscore,
+                "params": questionDetail?.editorState?.options,
+                "sectionId": sectionId
+              },    
+              "index": 0,
+              "pass": "No",
+              "score": 0,
+              "resvalues": [],
+              "duration": 0,
+              "sectionName":sectionName
+            }
+            trackData.push(edata);
+          }}
+          catch (error) {
+              // Display the error in an alert
+              //alert(`An error occurred: ${error.message}`);
+          }
+          //alert("trackData "+JSON.stringify(trackData));
+          let apiCalled = false;
+          // Need to pass the API URL to fetch the question set
+          window.questionListUrl = questionListUrl;
+          const qumlPlayerElement = document.createElement('sunbird-quml-player');
+          qumlPlayerElement.setAttribute('player-config', JSON.stringify(playerConfig));
+          qumlPlayerElement.addEventListener('playerEvent', (event) => {
+            console.log("On playerEvent", event);
+            try {
+              const data = event?.detail;
+                  let result_submit={data:data, event:"playerevent"};
+                  window.parent.postMessage(JSON.stringify(result_submit));
+                } catch (error) {
+                  console.error("Error submitting assessment:", error);
+                }
+          });
+
+          qumlPlayerElement.addEventListener('telemetryEvent', (event) => {
+            console.log("On telemetryEvent", event);
+            try {
+            const data = event?.detail;
+                let result_submit={data:data};
+                window.parent.postMessage(JSON.stringify(result_submit));
+              } catch (error) {
+                console.error("Error submitting assessment:", error);
+              }
+              //calculate asessment result
+            const data = event?.detail;
+            let telemetry = {};
+
+            if (data && typeof data?.data === "string") {
+              telemetry = JSON.parse(data.data);
+            } else if (data && typeof data === "string") {
+              telemetry = JSON.parse(data);
+            } else if (data?.eid) {
+              telemetry = data;
+            }
+
+            if (telemetry?.eid === "ASSESS") {
+              const edata = telemetry?.edata;
+              //add && edata?.resvalues.length > 0 in condition if only get response of attempt question
+              //remove && edata?.resvalues.length > 0 in condition if get data of skipped question also
+              if (edata?.resvalues && edata?.resvalues.length > 0) {
+                const existingDataIndex = trackData.findIndex(
+                  (e) => e?.item?.id === edata?.item?.id
+                );
+
+                if (existingDataIndex >= 0) {
+                  trackData[existingDataIndex] = {
+                    ...edata,
+                    sectionName: sectionContent?.children?.find(
+                      (e) => e?.identifier === telemetry?.edata?.item?.sectionId
+                    )?.name,
+                  };
+                } else {
+                  trackData.push({
+                    ...edata,
+                    sectionName: sectionContent?.children?.find(
+                      (e) => e?.identifier === telemetry?.edata?.item?.sectionId
+                    )?.name,
+                  });
+                }
+              }
+              localStorage.setItem("trackDATA", JSON.stringify(trackData));
+            } else if (telemetry?.eid === "END") {
+              let originalDuration = event?.detail?.edata?.duration;
+              let newDuration = originalDuration / 10;
+              let seconds = (newDuration = Math.round(newDuration * 10) / 10);
+
+              localStorage.setItem("totalDuration", seconds);
+            }
+
+            const endPageSeen = telemetry?.edata?.extra?.find(
+              (item) => item.id === "endpageseen"
+            );
+
+            if (endPageSeen && endPageSeen.value === "true" && !apiCalled) {
+              apiCalled = true;
+
+              let trackDataOld = localStorage.getItem("trackDATA");
+              let trackDataParsed = JSON.parse(trackDataOld);
+              let scoreDetails;
+
+              const newFormatData = trackDataParsed.reduce((acc, obj) => {
+                const existingSection = acc.find(
+                  (e) => e.sectionId === obj["item"]["sectionId"]
+                );
+
+                if (existingSection) {
+                  existingSection.data.push(obj);
+                } else {
+                  acc.push({
+                    sectionId: obj["item"]["sectionId"],
+                    sectionName: obj["sectionName"] || "",
+                    data: [obj],
+                  });
+                }
+                return acc;
+              }, []);
+
+              //scoreDetails = JSON.stringify(newFormatData);
+              scoreDetails = newFormatData;
+
+              const secondsString = localStorage.getItem("totalDuration");
+              const seconds = Number(secondsString);
+
+              try {
+                let result_submit={scoreDetails:scoreDetails,identifierWithoutImg:identifierWithoutImg,maxScore:maxScore,seconds:seconds};
+                window.parent.postMessage(JSON.stringify(result_submit));
+              } catch (error) {
+                console.error("Error submitting assessment:", error);
+              }
+            } else {
+              console.log("End page not seen, API call not made.");
+            }
+          });
+
+          //alert("in if end ");
+          const myPlayer = document.getElementById("my-player");
+          myPlayer.appendChild(qumlPlayerElement);
+        }
+        else
+        {
+          alert("Invalid playerConfig");
+        }
+      }
+    </script>
+  </body>
+</html>
+
+<!--
+  Steps to run locally:
+  1. Install http-server npm package locally `npm i http-server -g`
+  2. Build the web component using `npm run build-web-component`
+  3. Run the server using `http-server --cors web-component .`
+-->

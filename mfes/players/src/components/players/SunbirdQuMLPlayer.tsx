@@ -1,77 +1,128 @@
 import 'reflect-metadata';
 import React, { useEffect, useRef } from 'react';
-import $ from 'jquery';
-import { getTelemetryEvents, handleExitEvent } from '../utils/Helper';
+// import axios from 'axios';
+import { handleTelemetryEventQuml } from '../../services/TelemetryService';
+import { handleExitEvent } from '../utils/Helper';
+import { createAssessmentTracking } from '../../services/PlayerService';
+
 interface PlayerConfigProps {
   playerConfig: any;
+  relatedData?: any;
+  configFunctionality?: boolean;
 }
 
-const SunbirdQuMLPlayer = ({ playerConfig }: PlayerConfigProps) => {
-  const SunbirdQuMLPlayerRef = useRef<HTMLDivElement | null>(null);
+const basePath = process.env.NEXT_PUBLIC_ASSETS_CONTENT || '/sbplayer';
+
+const SunbirdQuMLPlayer = ({
+  playerConfig,
+  relatedData: { courseId, unitId, userId },
+  configFunctionality,
+}: PlayerConfigProps) => {
+  const SunbirdQuMLPlayerRef = useRef<HTMLIFrameElement | null>(null);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      //@ts-ignore
-      window.$ = window.jQuery = $;
-      //@ts-ignore
-      window.questionListUrl = '/api/question/v2/list';
+    const playerElement: any = SunbirdQuMLPlayerRef.current;
+    if (playerElement) {
+      const originalSrc = playerElement.src;
+      playerElement.src = '';
+      playerElement.src = originalSrc;
+
+      const handleLoad = async () => {
+        // console.log(
+        //   'playerConfig',
+        //   playerConfig?.metadata?.children,
+        //   playerConfig?.metadata?.children.map((child: any) => child.identifier)
+        // );
+
+        // if (playerConfig?.metadata?.children) {
+        // const { data } = await axios.post(
+        //   `${process.env.NEXT_PUBLIC_MIDDLEWARE_URL}/api/question/v2/list`,
+        //   {
+        //     request: {
+        //       search: {
+        //         identifier: playerConfig?.metadata?.children.map(
+        //           (child: any) => child.identifier
+        //         ),
+        //       },
+        //     },
+        //   }
+        // );
+        // localStorage.setItem(
+        //   'questions_data',
+        //   JSON.stringify({ questions_data: data })
+        // );
+        // console.log(data, 'result');
+        // }
+        setTimeout(() => {
+          if (
+            playerElement.contentWindow &&
+            playerElement.contentWindow.setData
+          ) {
+            playerElement.contentWindow?.localStorage.setItem(
+              'questions_data',
+              JSON.stringify({ questions_data: { result: { questions: [] } } })
+            );
+            playerElement.contentWindow?.localStorage.setItem(
+              'qumlPlayerObject',
+              JSON.stringify({
+                qumlPlayerConfig: playerConfig,
+                questionListUrl: `${process.env.NEXT_PUBLIC_MIDDLEWARE_URL}/api/question/v2/list`,
+              })
+            );
+
+            playerElement.contentWindow.setData(playerConfig);
+          }
+        }, 200);
+      };
+
+      playerElement.addEventListener('load', handleLoad);
+
+      return () => {
+        playerElement.removeEventListener('load', handleLoad);
+      };
     }
+  }, [playerConfig]);
 
-    const jqueryScript = document.createElement('script');
-    jqueryScript.src = 'https://code.jquery.com/jquery-3.6.0.min.js';
-    jqueryScript.async = true;
-    document.body.appendChild(jqueryScript);
-
-    const script = document.createElement('script');
-    script.src =
-      'https://cdn.jsdelivr.net/npm/@project-sunbird/sunbird-quml-player-web-component@3.0.0/sunbird-quml-player.js';
-    script.async = true;
-    document.body.appendChild(script);
-
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href =
-      'https://cdn.jsdelivr.net/npm/@project-sunbird/sunbird-quml-player-web-component@3.0.0/styles.css';
-    document.head.appendChild(link);
-
-    const playerElement = SunbirdQuMLPlayerRef.current;
-
-    const handlePlayerEvent = (event: any) => {
-      console.log('Player Event', event.detail);
-      if (event?.detail?.edata?.type === 'EXIT') {
+  React.useEffect(() => {
+    const handleMessage = (event: any) => {
+      const data = JSON.parse(event?.data);
+      if (data?.maxScore !== undefined) {
+        createAssessmentTracking({
+          ...data,
+          courseId,
+          unitId,
+          userId,
+        });
+      } else if (data?.data?.edata?.type === 'EXIT') {
         handleExitEvent();
+      } else if (data?.data?.mid) {
+        handleTelemetryEventQuml(data, {
+          courseId,
+          unitId,
+          userId,
+          configFunctionality,
+        });
       }
     };
-    const handleTelemetryEvent = (event: any) => {
-      console.log('Telemetry Event', event.detail);
-      getTelemetryEvents(event.detail, 'quml');
-    };
-    // Ensure the script has loaded before adding event listeners
-    script.onload = () => {
-      playerElement?.addEventListener('playerEvent', handlePlayerEvent);
-      playerElement?.addEventListener('telemetryEvent', handleTelemetryEvent);
-    };
+
+    window.addEventListener('message', handleMessage, false);
 
     return () => {
-      playerElement?.removeEventListener('playerEvent', handlePlayerEvent);
-      playerElement?.removeEventListener(
-        'telemetryEvent',
-        handleTelemetryEvent
-      );
-      document.body.removeChild(script);
+      window.removeEventListener('message', handleMessage);
     };
   }, []);
 
   return (
-    <div className="player-grid" style={{ height: '100vh' }}>
-      {/* @ts-ignore */}
-      <sunbird-quml-player
-        player-config={JSON.stringify(playerConfig)}
-        ref={SunbirdQuMLPlayerRef}
-      >
-        {/* @ts-ignore */}
-      </sunbird-quml-player>
-    </div>
+    <iframe
+      ref={SunbirdQuMLPlayerRef}
+      id="contentPlayer"
+      title="Content Player"
+      src={`${basePath}/libs/sunbird-quml-player/index.html`}
+      aria-label="Content Player"
+      style={{ border: 'none' }}
+      width={'100%'}
+      height={'100%'}
+    ></iframe>
   );
 };
 

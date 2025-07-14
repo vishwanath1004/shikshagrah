@@ -14,6 +14,7 @@ interface SearchBarProps {
   onRightIconClick?: () => void;
   inputValue?: string;
   onInputChange?: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onSearch?: () => void;
   sx?: SxProps<Theme>;
 }
 
@@ -27,8 +28,14 @@ export const CommonSearch: React.FC<SearchBarProps> = ({
   onInputChange,
   leftIconAriaLabel,
   rightIconAriaLabel,
+  onSearch,
   sx = {},
 }) => {
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      onRightIconClick?.();
+    }
+  };
   return (
     <Box
       sx={{
@@ -55,6 +62,7 @@ export const CommonSearch: React.FC<SearchBarProps> = ({
         inputProps={{ 'aria-label': placeholder }}
         value={inputValue}
         onChange={onInputChange}
+        onKeyDown={handleKeyDown}
       />
       {rightIcon && (
         <IconButton

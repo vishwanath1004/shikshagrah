@@ -6,8 +6,6 @@ import {
   genericEditorRequestForChangesFormResponse,
   publishResourceFormResponse,
 } from './mocked-response';
-import * as cookie from 'cookie';
-
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -20,11 +18,9 @@ export default async function handler(
   const NEXT_PUBLIC_TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID as string;
   const NEXT_PUBLIC_CHANNEL_ID = process.env.NEXT_PUBLIC_CHANNEL_ID as string;
 
-  const cookies = cookie.parse(req.headers.cookie || '');
 
-  console.log(cookies?.authToken);
 
-  const token = cookies?.authToken || API_KEY;
+  const token =   API_KEY;
 
   if (!token) {
     console.error('No valid token available');

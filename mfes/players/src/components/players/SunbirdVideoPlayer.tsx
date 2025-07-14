@@ -1,83 +1,92 @@
-import { getTelemetryEvents, handleExitEvent } from '../utils/Helper';
-import React, { useEffect, useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
+import { getTelemetryEvents } from '../../services/TelemetryService';
+import { handleExitEvent } from '../utils/Helper';
 
 interface PlayerConfigProps {
   playerConfig: any;
+  relatedData?: any;
+  configFunctionality?: any;
 }
 
-const SunbirdVideoPlayer = ({ playerConfig }: PlayerConfigProps) => {
-  const sunbirdVideoPlayerRef = useRef<HTMLDivElement | null>(null);
+const basePath = process.env.NEXT_PUBLIC_ASSETS_CONTENT || '/sbplayer';
+
+const SunbirdVideoPlayer = ({
+  playerConfig,
+  relatedData: { courseId, unitId, userId },
+  configFunctionality,
+}: PlayerConfigProps) => {
+  const sunbirdVideoPlayerRef = useRef<HTMLIFrameElement | null>(null);
 
   useEffect(() => {
-    // Load jQuery
-    const jqueryScript = document.createElement('script');
-    jqueryScript.src = 'https://code.jquery.com/jquery-3.6.0.min.js';
-    jqueryScript.async = true;
-    document.body.appendChild(jqueryScript);
+    const playerElement: any = sunbirdVideoPlayerRef.current;
+    if (playerElement) {
+      const originalSrc = playerElement.src;
+      playerElement.src = '';
+      playerElement.src = originalSrc;
 
-    const script = document.createElement('script');
-    script.src =
-      'https://cdn.jsdelivr.net/npm/@project-sunbird/sunbird-video-player-web-component@1.2.5/sunbird-video-player.js';
-    script.async = true;
+      const handleLoad = () => {
+        setTimeout(() => {
+          if (
+            playerElement.contentWindow &&
+            playerElement.contentWindow.setData
+          ) {
+            // playerElement.contentWindow.setData(playerConfig);
+            const videoElement = document.createElement('sunbird-video-player');
+            videoElement.setAttribute(
+              'player-config',
+              JSON.stringify(playerConfig)
+            );
+            videoElement.addEventListener('playerEvent', (event: any) => {
+              if (event?.detail?.edata?.type === 'EXIT') {
+                event.preventDefault();
+                handleExitEvent();
+              }
+            });
+            videoElement.addEventListener(
+              'telemetryEvent',
+              async (event: any) => {
+                console.log('On telemetryEvent', event);
+                try {
+                  await getTelemetryEvents(event.detail, 'video', {
+                    courseId,
+                    unitId,
+                    userId,
+                    configFunctionality,
+                  });
+                } catch (error) {
+                  console.error('Error submitting assessment:', error);
+                }
+              }
+            );
 
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href =
-      'https://cdn.jsdelivr.net/npm/@project-sunbird/sunbird-video-player-web-component@1.2.5/styles.css';
+            const myPlayer =
+              playerElement.contentDocument.getElementById('my-player');
+            if (myPlayer) {
+              myPlayer.appendChild(videoElement);
+            }
+          }
+        }, 200);
+      };
 
-    jqueryScript.onload = () => {
-      document.body.appendChild(script);
-      document.head.appendChild(link);
-    };
+      playerElement.addEventListener('load', handleLoad);
 
-    const playerElement = sunbirdVideoPlayerRef.current;
-
-    const handlePlayerEvent = (event: any) => {
-      console.log('Player Event', event.detail);
-      if (event?.detail?.type === 'EXIT') {
-        handleExitEvent();
-      }
-    };
-
-    const handleTelemetryEvent = (event: any) => {
-      console.log('Telemetry Event', event.detail);
-      getTelemetryEvents(event.detail, 'video');
-    };
-
-    script.onload = () => {
-      playerElement?.addEventListener('playerEvent', handlePlayerEvent);
-      playerElement?.addEventListener('telemetryEvent', handleTelemetryEvent);
-    };
-
-    return () => {
-      playerElement?.removeEventListener('playerEvent', handlePlayerEvent);
-      playerElement?.removeEventListener(
-        'telemetryEvent',
-        handleTelemetryEvent
-      );
-
-      if (document.body.contains(jqueryScript)) {
-        document.body.removeChild(jqueryScript);
-      }
-      if (document.body.contains(script)) {
-        document.body.removeChild(script);
-      }
-      if (document.head.contains(link)) {
-        document.head.removeChild(link);
-      }
-    };
-  }, []);
+      return () => {
+        playerElement.removeEventListener('load', handleLoad);
+      };
+    }
+  }, [playerConfig]);
 
   return (
-    <div className="player" style={{ height: 'auto' }}>
-      {/* @ts-ignore */}
-      <sunbird-video-player
-        player-config={JSON.stringify(playerConfig)}
-        ref={sunbirdVideoPlayerRef}
-      >
-        {/* @ts-ignore */}
-      </sunbird-video-player>
-    </div>
+    <iframe
+      ref={sunbirdVideoPlayerRef}
+      id="contentPlayer"
+      title="Content Player"
+      src={`${basePath}/libs/sunbird-video-player/index.html`}
+      aria-label="Content Player"
+      style={{ border: 'none' }}
+      width={'100%'}
+      height={'100%'}
+    ></iframe>
   );
 };
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { useRouter } from 'next/router';
+import { useParams } from 'next/navigation';
 import {
   fetchContent,
   getHierarchy,
@@ -14,6 +14,8 @@ import {
   V2PlayerConfig,
 } from '../utils/url.config';
 import Loader from '../components/Loader';
+import { Layout } from '@shared-lib';
+import { useRouter } from 'next/router';
 
 const SunbirdPlayers = dynamic(() => import('../components/players/Players'), {
   ssr: false,
@@ -28,13 +30,14 @@ const Players: React.FC<SunbirdPlayerProps> = ({
   identifier: propIdentifier,
   playerConfig: propPlayerConfig,
 }) => {
-  const router = useRouter();
-  const queryIdentifier = router.query.identifier as string; // Get identifier from the query
+  const params = useParams();
+  const queryIdentifier = params?.identifier; // string | string[] | undefined
   const identifier = propIdentifier || queryIdentifier; // Prefer prop over query
   const [playerConfig, setPlayerConfig] = useState<PlayerConfig | undefined>(
     propPlayerConfig
   );
   const [loading, setLoading] = useState(!propPlayerConfig);
+  const router = useRouter();
 
   useEffect(() => {
     if (playerConfig || !identifier) return;
@@ -52,7 +55,7 @@ const Players: React.FC<SunbirdPlayerProps> = ({
           const metadata = { ...Q1?.questionset, ...Q2?.questionset };
           config.metadata = metadata;
         } else if (MIME_TYPE.INTERACTIVE_MIME_TYPE.includes(data?.mimeType)) {
-          config = { ...V1PlayerConfig, metadata: data };
+          config = { ...V1PlayerConfig, metadata: data, data: data.body || {} };
           //@ts-ignore
           config.context['contentId'] = identifier;
         } else {
@@ -60,7 +63,6 @@ const Players: React.FC<SunbirdPlayerProps> = ({
           //@ts-ignore
           config.context['contentId'] = identifier;
         }
-
         setPlayerConfig(config);
       } catch (error) {
         console.error('Error loading content:', error);
@@ -84,30 +86,44 @@ const Players: React.FC<SunbirdPlayerProps> = ({
       </Box>
     );
   }
-
+  const onBackClick = () => {
+    router.back();
+  };
   return (
-    <Box>
-      {loading ? (
-        <Box
-          display="flex"
-          justifyContent="center"
-          alignItems="center"
-          height="100vh"
-        >
-          <Loader showBackdrop={false} />
-        </Box>
-      ) : (
-        <Box marginTop="1rem" px="14px">
-          {/* <Typography
+    <Layout
+      showTopAppBar={{
+        title: '',
+        showMenuIcon: true,
+        showBackIcon: true,
+        backIconClick: onBackClick,
+      }}
+      isFooter={true}
+      showLogo={true}
+      showBack={false}
+    >
+      <Box>
+        {loading ? (
+          <Box
+            display="flex"
+            justifyContent="center"
+            alignItems="center"
+            height="100vh"
+          >
+            <Loader showBackdrop={false} />
+          </Box>
+        ) : (
+          <Box height="100vh" width="100%" p="14px">
+            {/* <Typography
             color="#024f9d"
             sx={{ padding: '0 0 4px 4px', fontWeight: 'bold' }}
           >
             {playerConfig?.metadata?.name || 'Loading...'}
           </Typography> */}
-          <SunbirdPlayers player-config={playerConfig} />
-        </Box>
-      )}
-    </Box>
+            <SunbirdPlayers player-config={playerConfig} />
+          </Box>
+        )}
+      </Box>
+    </Layout>
   );
 };
 

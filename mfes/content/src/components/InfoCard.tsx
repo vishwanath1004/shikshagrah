@@ -6,6 +6,8 @@ import {
   IconButton,
   Button,
   Breadcrumbs,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import React, { useState } from 'react';
@@ -24,12 +26,24 @@ const InfoCard: React.FC<InfoCardProps> = ({
   onBackClick,
   _config,
 }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { _infoCard } = _config ?? {};
   const [openModal, setOpenModal] = useState(false);
   console.log('infocard--', _infoCard);
   return (
     <>
-      <Card sx={{ display: 'flex', ..._infoCard?._card, marginTop: '5%' }}>
+      <Card
+        sx={{
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          ..._infoCard?._card,
+          marginTop: isMobile ? '5%' : '2%',
+          marginBottom: isMobile ? '25%' : '6%',
+
+          padding: '16px',
+        }}
+      >
         <CardMedia
           component="img"
           sx={{

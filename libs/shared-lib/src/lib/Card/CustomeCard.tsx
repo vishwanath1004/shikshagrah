@@ -12,7 +12,8 @@ export const DynamicCard = ({ title, icon, onClick }) => {
       sx={{
         width: { xs: '110px', sm: '200px' },
         minHeight: { xs: 150, sm: 180 }, // Fixed minimum height
-        height: { xs: 150, sm: 180 }, // Ensuring fixed height
+        height: { xs: 150, sm: 180 },
+        // Ensuring fixed height
         textAlign: 'center',
         padding: 1.5,
         cursor: 'pointer',

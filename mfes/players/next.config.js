@@ -19,14 +19,14 @@ const routes = {
  * @type {import('@nx/next/plugins/with-nx').WithNxOptions}
  **/
 const nextConfig = {
-  typescript: {
-    ignoreBuildErrors: true,
-  },
+  trailingSlash: false,
+  reactStrictMode: true,
   nx: {
     // Set this to true if you would like to use SVGR
     // See: https://github.com/gregberge/svgr
     svgr: false,
   },
+  basePath: '/sbplayer', // This should match the path set in Nginx
   async rewrites() {
     return [
       {
@@ -41,6 +41,10 @@ const nextConfig = {
         source: '/action/content/v3/upload/url/:identifier*', // Match content upload with 'url' in the path
         destination:
           '/api/proxy?path=/action/content/v3/upload/url/:identifier*', // Forward to proxy route with path as query param
+      },
+      {
+        source: '/api/:path*', // Match /api/ routes
+        destination: '/api/proxy?path=/api/:path*', // Forward them to proxy.js
       },
       {
         source: '/action/content/v3/upload/:identifier*', // Match content upload routes

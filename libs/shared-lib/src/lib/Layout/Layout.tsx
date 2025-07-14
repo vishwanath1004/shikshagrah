@@ -516,8 +516,8 @@ export const Layout: React.FC<LayoutProps> = ({
             width: '100%',
             display: 'flex',
             justifyContent: 'space-between',
-            marginTop: '90px',
-            marginLeft: '10px',
+            marginTop: '20px',
+            padding: '0 16px',
           }}
         >
           <CommonSearch

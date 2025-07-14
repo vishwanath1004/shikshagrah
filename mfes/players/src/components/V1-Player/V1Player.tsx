@@ -1,10 +1,19 @@
 import React, { useRef, useEffect } from 'react';
+import { getTelemetryEvents } from '../../services/TelemetryService';
 
 interface PlayerProps {
   playerConfig: any;
+  relatedData?: any;
+  configFunctionality?: boolean;
 }
 
-const V1Player = ({ playerConfig }: PlayerProps) => {
+const basePath = process.env.NEXT_PUBLIC_ASSETS_CONTENT || '/sbplayer';
+
+const V1Player = ({
+  playerConfig,
+  relatedData: { courseId, unitId, userId },
+  configFunctionality,
+}: PlayerProps) => {
   const previewRef = useRef<HTMLIFrameElement | null>(null);
 
   useEffect(() => {
@@ -24,43 +33,24 @@ const V1Player = ({ playerConfig }: PlayerProps) => {
             preview.contentWindow.initializePreview(playerConfig);
           }
 
-          // Handle cross-origin messages securely
-          const messageHandler = (event: MessageEvent) => {
-            // Allow all origins but validate the message structure
-            console.log('V1 player event', event);
-
-            // Example validation: Check for expected message data
-            if (
-              event.data &&
-              typeof event.data === 'object' &&
-              event.data.type === 'expectedType'
-            ) {
-              console.log('Valid message received:', event.data);
-              // Process the message
-            } else {
-              console.warn('Unexpected message format:', event.data);
-            }
-          };
-
-          // Add listener for 'message' events
-          preview.contentWindow.addEventListener('message', messageHandler);
-
-          // Handle telemetry events
-          const telemetryHandler = (event: CustomEvent) => {
-            console.log('V1 player telemetry event ===>', event);
-
-            if (event.detail.telemetryData?.eid === 'START') {
-              console.log('V1 player telemetry START event ===>', event);
-            }
-            if (event.detail.telemetryData?.eid === 'END') {
-              console.log('V1 player telemetry END event ===>', event);
-            }
-          };
-
-          // Add listener for 'renderer:telemetry:event'
           preview.addEventListener(
             'renderer:telemetry:event',
-            telemetryHandler
+            async (event: any) => {
+              console.log('V1 player telemetry event ===>', event);
+              if (event.detail.telemetryData.eid === 'START') {
+                console.log('V1 player telemetry START event ===>', event);
+              }
+              if (event.detail.telemetryData.eid === 'END') {
+                console.log('V1 player telemetry END event ===>', event);
+              }
+
+              await getTelemetryEvents(event.detail.telemetryData, 'v1', {
+                courseId,
+                unitId,
+                userId,
+                configFunctionality,
+              });
+            }
           );
         }, 100);
       };
@@ -80,23 +70,16 @@ const V1Player = ({ playerConfig }: PlayerProps) => {
   }, [playerConfig]);
 
   return (
-    <div
-      style={{
-        width: '100%',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-      }}
-    >
-      <iframe
-        ref={previewRef}
-        id="contentPlayer"
-        title="Content Player"
-        src="/content/preview/preview.html?webview=true"
-        aria-label="Content Player"
-        style={{ width: '100%', height: '600px', border: 'none' }}
-      ></iframe>
-    </div>
+    <iframe
+      ref={previewRef}
+      id="contentPlayer"
+      title="Content Player"
+      src={`${basePath}/libs/sunbird-content-player/preview/preview.html?webview=true`}
+      aria-label="Content Player"
+      style={{ border: 'none' }}
+      width={'100%'}
+      height={'100%'}
+    ></iframe>
   );
 };
 

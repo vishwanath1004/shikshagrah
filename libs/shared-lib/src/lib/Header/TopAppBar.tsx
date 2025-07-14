@@ -68,6 +68,7 @@ export const TopAppBar: React.FC<CommonAppBarProps> = ({
   console.log('showBackIcon', showBackIcon);
   return (
     <Box sx={{ flexGrow: 1 }}>
+      <Box sx={{ minHeight: '64px' }} />
       <AppBar
         component="nav"
         sx={{

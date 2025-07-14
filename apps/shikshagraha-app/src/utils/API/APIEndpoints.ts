@@ -21,9 +21,10 @@ export const API_ENDPOINTS = {
   formRead: `${baseurl}/user/v1/form/read`,
   ForgotPassword: `${baseurl}/user/v1/account/resetPassword`,
   sendForgetOtp: `${baseurl}/user/v1/account/generateOtp`,
-  deleteAccount:`${baseurl}/user/v1/account/delete`,
+  deleteAccount: `${baseurl}/user/v1/account/delete`,
   roleRead: `${baseurl}/entity-management/v1/entities/entityListBasedOnEntityType?entityType=professional_role`,
   userCreate: `${baseurl}/interface/v1/account/create`,
+  tenantRead: `${baseurl}/user/v1/public/branding`,
   checkUser: (email: string) =>
     `${baseurl}/user/v1/public/checkUsername?username=${email}`,
   udiseSearch: (udise: string) =>
@@ -35,7 +36,7 @@ export const API_ENDPOINTS = {
   fieldUpdate: (fieldId: string) => `${baseurl}/fields/update/${fieldId}`,
   cohortUpdate: (cohortId: string) => `${baseurl}/cohort/update/${cohortId}`,
   notificationSend: `${baseurl}/notification/send`,
-  tenantRead: `${baseurl}/tenant/read`,
+  // tenantRead: `${baseurl}/tenant/read`,
   tenantCreate: `${baseurl}/tenant/create`,
   tenantUpdate: (tenantId: string) => `${baseurl}/tenant/update/${tenantId}`,
   tenantDelete: (tenantId: string) => `${baseurl}/tenant/delete/${tenantId}`,

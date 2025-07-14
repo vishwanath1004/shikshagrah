@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 'use client';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Box,
   Button,
@@ -13,7 +13,7 @@ import {
   Grid,
   InputAdornment,
   ButtonBase,
-  Snackbar
+  Snackbar,
 } from '@mui/material';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
@@ -23,6 +23,7 @@ import {
   authenticateLoginUser,
   fetchTenantData,
   signin,
+  fetchBranding,
 } from '../services/LoginService';
 import AppConst from '../utils/AppConst/AppConst';
 export default function Login() {
@@ -38,6 +39,9 @@ export default function Login() {
   const unAuth = queryRouter.get('unAuth');
   const basePath = AppConst?.BASEPATH;
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [displayName, setDisplayName] = useState('');
+  const [formSubmitted, setFormSubmitted] = useState(false);
+  const loginClickedRef = useRef(false);
   const passwordRegex =
     /^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[~!@#$%^&*()_+\-={}:";'<>?,./\\]).{8,}$/;
   useEffect(() => {
@@ -49,9 +53,56 @@ export default function Login() {
     // Remove readonly after a short delay to prevent autofill
     const timer = setTimeout(() => {
       setReadOnly(false);
-    }, 100);
+    }, 500);
     return () => clearTimeout(timer);
   }, []);
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const hostname = window.location.hostname;
+      const origin = window.location.origin;
+      const parts = hostname.split('.');
+      localStorage.setItem('origin', origin);
+
+      const skipList = [
+        'app',
+        'www',
+        'dev',
+        'staging',
+        'tekdinext',
+        'org',
+        'com',
+        'net',
+      ];
+
+      // Step 1: Find the most likely base domain part
+      const domainPart =
+        parts.find((part) => !skipList.includes(part.toLowerCase())) ||
+        'default';
+
+      // Step 2: Remove suffixes like -qa, -dev, etc. if present
+      const knownSuffixes = ['-qa', '-dev', '-staging'];
+      let coreDomain = knownSuffixes.reduce((name, suffix) => {
+        return name.endsWith(suffix) ? name.replace(suffix, '') : name;
+      }, domainPart);
+
+      fetchBranding(coreDomain).then((brandingData) => {
+        if (brandingData) {
+          console.log('Branding:', brandingData?.result);
+          const tenantCode = brandingData?.result?.code;
+          // const tenantCode = 'shikshalokam';
+          localStorage.setItem('tenantCode', tenantCode);
+        }
+      });
+      const displayName = localStorage.getItem('tenantCode');
+
+      if (coreDomain === 'shikshagrah') {
+        coreDomain = 'shikshagraha';
+      }
+      console.log('tenantCode', displayName);
+      // localStorage.setItem('origin', coreDomain);
+    }
+  }, []);
+
   const handleChange =
     (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
       setShowError(false);
@@ -72,6 +123,8 @@ export default function Login() {
     setIsAuthenticated(!!localStorage.getItem('accToken'));
   }, []);
   const handleButtonClick = async () => {
+    if (formSubmitted) return; // Prevent duplicate submissions
+    setFormSubmitted(true);
     setShowError(false);
     if (!formData.userName || !formData.password) {
       setError({
@@ -138,6 +191,7 @@ export default function Login() {
       setErrorMessage(error?.message ?? 'Login failed. Please try again.');
     } finally {
       setLoading(false);
+      setFormSubmitted(false);
     }
   };
   const handleRegisterClick = () => {
@@ -149,7 +203,7 @@ export default function Login() {
 
   const remoteUnAuthToaster = () => {
     router.push('/');
-  }
+  };
   return (
     <Box
       sx={{
@@ -210,7 +264,26 @@ export default function Login() {
           style={{ width: '100%' }}
           onSubmit={(e) => {
             e.preventDefault();
+            if (window.matchMedia('(display-mode: standalone)').matches) {
+              if (!loginClickedRef.current) return;
+              // // Only submit if the submit button was clearly clicked
+              // const isActualSubmit =
+              //   e.nativeEvent.submitter?.className?.includes('MuiButton-root');
+              // if (!isActualSubmit) return;
+            }
+            loginClickedRef.current = false;
             handleButtonClick();
+          }}
+          onInput={(e) => {
+            // Catch autofill events in PWA
+            if (window.matchMedia('(display-mode: standalone)').matches) {
+              if (
+                e.target.name === 'userName' &&
+                e.nativeEvent.inputType === 'insertReplacementText'
+              ) {
+                e.preventDefault();
+              }
+            }
           }}
         >
           {/* Hidden fields to trick Chrome's autofill */}
@@ -236,11 +309,15 @@ export default function Login() {
           >
             <Box
               component="img"
-              src={`/assets/images/SG_Logo.jpg`}
+              src={
+                displayName == 'shikshalokam'
+                  ? '/assets/images/SG_Logo.png'
+                  : '/assets/images/SG_Logo.jpg'
+              }
               alt="logo"
               sx={{
-                width: '70%',
-                height: '70%',
+                width: '50%',
+                height: '50%',
                 borderRadius: '50%',
                 objectFit: 'cover',
               }}
@@ -251,12 +328,18 @@ export default function Login() {
             label="Email / Mobile / Username"
             value={formData.userName}
             onChange={handleChange('userName')}
+            onInput={(e) => {
+              // Prevent form submission on autofill
+              if (e.nativeEvent.inputType === 'insertReplacementText') {
+                e.preventDefault();
+              }
+            }}
             error={error.userName}
             helperText={error.userName ? 'Username is required' : ''}
             sx={{ mb: 2 }}
-            autoComplete="new-password"
+            autoComplete="off"
             inputProps={{
-              autoComplete: 'new-password',
+              autoComplete: 'off',
               name: 'login-username',
               readOnly: readOnly,
               onFocus: () => setReadOnly(false),
@@ -277,9 +360,9 @@ export default function Login() {
                 ? 'Password must be at least 8 characters long, include numerals, uppercase, lowercase, and special characters.'
                 : ''
             }
-            autoComplete="new-password"
+            autoComplete="off"
             inputProps={{
-              autoComplete: 'new-password',
+              autoComplete: 'off',
               name: 'login-password',
               readOnly: readOnly,
               onFocus: () => setReadOnly(false),
@@ -344,6 +427,7 @@ export default function Login() {
                 },
                 width: { xs: '50%', sm: '50%' },
               }}
+              onClick={() => (loginClickedRef.current = true)}
             >
               Login
             </Button>

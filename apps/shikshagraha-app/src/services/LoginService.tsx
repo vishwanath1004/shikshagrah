@@ -68,14 +68,10 @@ export const readHomeListForm = async (token: string) => {
     throw new Error('NEXT_PUBLIC_BASE_URL is not defined');
   }
 
-  const apiUrl = `${baseUrl}/user/v1/form/read`;
-  const payloadData = {
-    type: 'solutionList',
-    sub_type: 'home',
-  };
+  const apiUrl = `${baseUrl}/user/v1/organization-feature/read`;
 
   try {
-    const { data } = await axios.post(apiUrl, payloadData, {
+    const { data } = await axios.get(apiUrl, {
       headers: {
         'X-Auth-Token': token,
       },
@@ -85,7 +81,7 @@ export const readHomeListForm = async (token: string) => {
     if (err.status == 401) {
       localStorage.removeItem('accToken');
       localStorage.clear();
-      window.location.href = process.env.NEXT_PUBLIC_LOGINPAGE + "?unAuth=true" || '';
+      window.location.href = window.location.origin + '?unAuth=true';
     }
     if (axios.isAxiosError(err)) {
       console.error(
@@ -115,7 +111,7 @@ export const authenticateUser = async ({
     if (response.status == 401) {
       localStorage.removeItem('accToken');
       localStorage.clear();
-      window.location.href = process.env.NEXT_PUBLIC_LOGINPAGE + "?unAuth=true" || '';
+      window.location.href = window.location.origin + '?unAuth=true';
     }
 
     return response?.data;
@@ -123,7 +119,7 @@ export const authenticateUser = async ({
     if (error.status == 401) {
       localStorage.removeItem('accToken');
       localStorage.clear();
-      window.location.href = process.env.NEXT_PUBLIC_LOGINPAGE + "?unAuth=true" || '';
+      window.location.href = window.location.origin + '?unAuth=true';
     }
     console.error('error in login', error);
     // throw error;
@@ -148,7 +144,7 @@ export const fetchTenantData = async ({
     if (response.status == 401) {
       localStorage.removeItem('accToken');
       localStorage.clear();
-      window.location.href = process.env.NEXT_PUBLIC_LOGINPAGE + "?unAuth=true" || '';
+      window.location.href = window.location.origin + '?unAuth=true';
     }
 
     return response?.data;
@@ -156,7 +152,7 @@ export const fetchTenantData = async ({
     if (error.status == 401) {
       localStorage.removeItem('accToken');
       localStorage.clear();
-      window.location.href = process.env.NEXT_PUBLIC_LOGINPAGE + "?unAuth=true" || '';
+      window.location.href = window.location.origin + '?unAuth=true';
     }
     console.error('Error fetching tenant data:', error);
     return error;
@@ -165,11 +161,12 @@ export const fetchTenantData = async ({
 
 export const fetchRoleData = async (): Promise<any> => {
   const apiUrl = `${API_ENDPOINTS.roleRead}`;
-
+  const tenantId = localStorage.getItem('tenantCode');
+  console.log('tenantId', tenantId);
   try {
     const response = await axios.get(apiUrl, {
       headers: {
-        tenantId: `shikshagraha`,
+        tenantId: tenantId,
       },
     });
 
@@ -180,22 +177,39 @@ export const fetchRoleData = async (): Promise<any> => {
   }
 };
 export const getSubroles = async (parentEntityId: string) => {
-  const response = await fetch(
-    `${process.env.NEXT_PUBLIC_BASE_URL}/entity-management/v1/entities/subEntityList/${parentEntityId}?type=professional_subroles`,
-    {
-      headers: {
-        tenantId: 'shikshagraha',
-        'Content-Type': 'application/json',
-      },
+  const tenantId = localStorage.getItem('tenantCode') ?? '';
+
+  try {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_BASE_URL}/entity-management/v1/entities/subEntityList/${parentEntityId}?type=professional_subroles`,
+      {
+        headers: {
+          tenantId: tenantId, // guaranteed to be a string
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(
+        `Request failed with status ${response.status}: ${errorBody}`
+      );
     }
-  );
-  return await response.json();
+
+    return await response.json();
+  } catch (error) {
+    console.error('Failed to fetch subroles:', error);
+    throw error;
+  }
 };
+
 export const schemaRead = async (): Promise<any> => {
   const apiUrl: string = `${API_ENDPOINTS.formRead}`;
   console.log(apiUrl);
-  const requestOrigin =
-    localStorage.getItem('origin') ?? 'shikshagraha-qa.tekdinext.com';
+  const tenantId = localStorage.getItem('origin') ?? '';
+
+  const requestOrigin = tenantId;
   try {
     const response = await axios.post(
       apiUrl,
@@ -214,7 +228,7 @@ export const schemaRead = async (): Promise<any> => {
     if (response.status === 401) {
       localStorage.removeItem('accToken');
       localStorage.clear();
-      window.location.href = process.env.NEXT_PUBLIC_LOGINPAGE + "?unAuth=true" || '';
+      window.location.href = window.location.origin + '?unAuth=true';
     }
 
     return response?.data;
@@ -222,7 +236,7 @@ export const schemaRead = async (): Promise<any> => {
     if (error?.response?.status === 401) {
       localStorage.removeItem('accToken');
       localStorage.clear();
-      window.location.href = process.env.NEXT_PUBLIC_LOGINPAGE + "?unAuth=true" || '';
+      window.location.href = window.location.origin + '?unAuth=true';
     }
     console.error('error in schemaRead', error);
     return error;
@@ -259,10 +273,12 @@ export const registerUserService = async (requestData: any) => {
 
 export const fetchContentOnUdise = async (udise: string): Promise<any> => {
   const apiUrl = `${API_ENDPOINTS.udiseSearch(udise)}`;
+  const tenantId = localStorage.getItem('tenantCode') ?? '';
+
   try {
     const response = await axios.get(apiUrl, {
       headers: {
-        tenantId: 'shikshagraha',
+        tenantId: tenantId,
       },
     });
     return response?.data;
@@ -313,8 +329,6 @@ export const sendForgetOtp = async (requestData: any) => {
   }
 };
 
-
-;
 export const readIndividualTenantData = async (tenantId: string) => {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
   if (!baseUrl) {
@@ -375,5 +389,22 @@ export const resetPassword = async (payload: {
   } catch (error) {
     console.error('Error during resetPassword API call:', error);
     throw error;
+  }
+};
+
+// services/loginService.ts
+export const fetchBranding = async (origin: string) => {
+  const apiUrl = `${API_ENDPOINTS.tenantRead}`;
+  try {
+    const response = await axios.get(apiUrl, {
+      headers: {
+        origin: localStorage.getItem('origin'),
+      },
+    });
+
+    return response?.data;
+  } catch (error: any) {
+    console.error('Error fetching tenant data:', error);
+    return error;
   }
 };
