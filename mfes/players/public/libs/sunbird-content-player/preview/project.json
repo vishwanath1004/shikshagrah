@@ -1,0 +1,9 @@
+{
+    "name": "sunbird-content-player-preview",
+    "$schema": "../../../../../../node_modules/nx/schemas/project-schema.json",
+    "sourceRoot": "mfes/players/public/libs/sunbird-content-player/preview/src",
+    "root": "mfes/players/public/libs/sunbird-content-player/preview",
+    "projectType": "library",
+    "tags": [],
+    "targets": {}
+  }

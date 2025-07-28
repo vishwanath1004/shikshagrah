@@ -1,0 +1,9 @@
+{
+    "name": "sunbird-quml-player",
+    "$schema": "../../../../../../node_modules/nx/schemas/project-schema.json",
+    "sourceRoot": "mfes/players/public/libs/sunbird-quml-player/src",
+    "root": "mfes/players/public/libs/sunbird-quml-player",
+    "projectType": "library",
+    "tags": [],
+    "targets": {}
+  }
