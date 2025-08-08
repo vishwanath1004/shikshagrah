@@ -11,11 +11,13 @@ import {
   createTheme,
   ThemeProvider,
   CircularProgress,
+  CssBaseline,
 } from '@mui/material';
 import {
   fetchRoleData,
   getSubroles,
   schemaRead,
+  fetchBranding,
 } from '../../services/LoginService';
 import { useRouter } from 'next/navigation';
 
@@ -34,49 +36,106 @@ export default function Register() {
   const [subRoles, setSubRoles] = useState<any[]>([]);
   const previousRole = useRef<string | null>(null);
   const [displayName, setDisplayName] = useState('');
+  const [tenantConfigured, setTenantConfigured] = useState(false);
 
+  // First useEffect: Initialize tenant configuration
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const hostname = window.location.hostname;
-      const origin = window.location.origin;
-      localStorage.setItem('origin', origin);
-      const parts = hostname.split('.');
+    const initializeTenant = async () => {
+      if (typeof window !== 'undefined') {
+        const hostname = window.location.hostname;
+        const origin = window.location.origin;
+        const parts = hostname.split('.');
+        localStorage.setItem('origin', origin);
 
-      const skipList = [
-        'app',
-        'www',
-        'dev',
-        'staging',
-        'tekdinext',
-        'org',
-        'com',
-        'net',
-      ];
+        const skipList = [
+          'app',
+          'www',
+          'dev',
+          'staging',
+          'tekdinext',
+          'org',
+          'com',
+          'net',
+        ];
 
-      // Step 1: Find the most likely base domain part
-      const domainPart =
-        parts.find((part) => !skipList.includes(part.toLowerCase())) ||
-        'default';
+        // Step 1: Find the most likely base domain part
+        const domainPart =
+          parts.find((part) => !skipList.includes(part.toLowerCase())) ||
+          'default';
 
-      // Step 2: Remove suffixes like -qa, -dev, etc. if present
-      const knownSuffixes = ['-qa', '-dev', '-staging'];
-      let coreDomain = knownSuffixes.reduce((name, suffix) => {
-        return name.endsWith(suffix) ? name.replace(suffix, '') : name;
-      }, domainPart);
+        // Step 2: Remove suffixes like -qa, -dev, etc. if present
+        const knownSuffixes = ['-qa', '-dev', '-staging'];
+        let coreDomain = knownSuffixes.reduce((name, suffix) => {
+          return name.endsWith(suffix) ? name.replace(suffix, '') : name;
+        }, domainPart);
 
-      // Step 3: Map or format display name
-      const displayName = toPascalCase(
-        localStorage.getItem('tenantCode') ?? ''
-      );
-      setDisplayName(displayName);
+        if (coreDomain === 'shikshagrah') {
+          coreDomain = 'shikshagraha';
+        }
 
-      setDisplayName(displayName ? displayName : '');
-      if (coreDomain === 'shikshagrah') {
-        coreDomain = 'shikshagraha';
+        try {
+          console.log('Fetching branding for domain:', coreDomain);
+          const brandingData = await fetchBranding(coreDomain);
+
+          if (brandingData && brandingData.result) {
+            console.log('Branding data received:', brandingData.result);
+            const tenantCode = brandingData.result.code;
+            const tenantId = brandingData.result.id;
+
+            // Set both tenantCode and tenantId in localStorage
+            localStorage.setItem('tenantCode', tenantCode);
+            localStorage.setItem('tenantId', tenantId);
+
+            setDisplayName(toPascalCase(tenantCode));
+            setTenantConfigured(true);
+            console.log('Tenant configured successfully:', {
+              tenantCode,
+              tenantId,
+            });
+          } else {
+            // Fallback for incognito mode or when branding fails
+            console.warn(
+              'Branding data not available, using fallback tenant configuration'
+            );
+            const fallbackTenantCode = 'shikshagraha';
+            const fallbackTenantId =
+              process.env.NEXT_PUBLIC_TENANT_ID ||
+              'fbe108db-e236-48a7-8230-80d34c370800';
+
+            localStorage.setItem('tenantCode', fallbackTenantCode);
+            localStorage.setItem('tenantId', fallbackTenantId);
+
+            setDisplayName(toPascalCase(fallbackTenantCode));
+            setTenantConfigured(true);
+            console.log('Fallback tenant configured:', {
+              fallbackTenantCode,
+              fallbackTenantId,
+            });
+          }
+        } catch (error) {
+          console.error('Error fetching branding:', error);
+          // Fallback for incognito mode or when branding fails
+          const fallbackTenantCode = 'shikshagraha';
+          const fallbackTenantId =
+            process.env.NEXT_PUBLIC_TENANT_ID ||
+            'fbe108db-e236-48a7-8230-80d34c370800';
+
+          localStorage.setItem('tenantCode', fallbackTenantCode);
+          localStorage.setItem('tenantId', fallbackTenantId);
+
+          setDisplayName(toPascalCase(fallbackTenantCode));
+          setTenantConfigured(true);
+          console.log('Error fallback tenant configured:', {
+            fallbackTenantCode,
+            fallbackTenantId,
+          });
+        }
       }
-      // localStorage.setItem('origin', coreDomain);
-    }
+    };
+
+    initializeTenant();
   }, []);
+
   const toPascalCase = (str: string): string => {
     return str
       .toLowerCase()
@@ -85,22 +144,22 @@ export default function Register() {
       );
   };
 
-  // const formatDisplayName = (domain: string): string => {
-  //   // Custom rules per domain (if needed)
-  //   if (domain === 'shikshagraha') return 'Shikshagraha';
-  //   if (domain === 'shikshalokam') return 'Shikshalokam';
-  //   if (domain === 'shikshagrah') return 'Shikshagraha';
-  //   // Default: Capitalize first letter
-  //   return domain.charAt(0).toUpperCase() + domain.slice(1);
-  // };
-
+  // Second useEffect: Fetch schema and other data only after tenant is configured
   useEffect(() => {
     const fetchSchema = async () => {
+      // Wait for tenant configuration to complete
+      if (!tenantConfigured) {
+        console.log('Waiting for tenant configuration...');
+        return;
+      }
+
+      console.log('Tenant configured, fetching schema...');
       try {
         setLoading(true);
         const origin = localStorage.getItem('origin') || '';
         const isShikshalokam = origin.includes('shikshalokam');
         console.log('isShikshalokam', isShikshalokam);
+
         const rolesResponse = await fetchRoleData();
         const rolesData = rolesResponse?.result ?? [];
         setRolesList(rolesData);
@@ -118,7 +177,6 @@ export default function Register() {
         if (selectedRoleObj) {
           const subrolesResponse = await getSubroles(selectedRoleObj._id);
           subrolesData = subrolesResponse.result ?? [];
-          // setSubRoles(subrolesData);
         }
 
         const { schema, uiSchema, fieldNameToFieldIdMapping } =
@@ -139,7 +197,6 @@ export default function Register() {
             registrationCodeConfig,
           },
         });
-        // setFormSchema(schema);
         setUiSchema(uiSchema);
         setFieldNameToFieldIdMapping(fieldNameToFieldIdMapping);
       } catch (error) {
@@ -151,7 +208,7 @@ export default function Register() {
 
     fetchSchema();
     setIsAuthenticated(!!localStorage.getItem('accToken'));
-  }, []);
+  }, [tenantConfigured]);
 
   const handleSubmit = ({ formData }: any) => {
     setFormData(formData);
@@ -174,7 +231,6 @@ export default function Register() {
   const StaticHeader = () => (
     <Box
       sx={{
-        p: 2,
         borderBottom: '2px solid #FFD580',
         boxShadow: '0px 2px 4px rgba(255, 153, 17, 0.2)',
         backgroundColor: '#FFF7E6',
@@ -184,8 +240,8 @@ export default function Register() {
         zIndex: 1000,
       }}
     >
-      <Grid container alignItems="center">
-        <Grid item xs={3} sm={2}>
+      <Grid container alignItems="center" sx={{ p: 2, minHeight: '60px' }}>
+        <Grid item xs={4} sm={3} md={2}>
           <Button
             onClick={handleBack}
             sx={{
@@ -194,23 +250,34 @@ export default function Register() {
               alignItems: 'center',
               fontWeight: 'bold',
               textTransform: 'none',
+              fontSize: { xs: '14px', sm: '16px' },
+              minWidth: 'auto',
+              padding: { xs: '6px 8px', sm: '8px 12px' },
               '&:hover': {
                 backgroundColor: '#F5F5F5',
               },
             }}
           >
-            <ArrowBackIcon sx={{ marginRight: '4px' }} />
+            <ArrowBackIcon
+              sx={{ marginRight: '4px', fontSize: { xs: '18px', sm: '20px' } }}
+            />
             Back
           </Button>
         </Grid>
         <Grid
           item
-          xs={6}
-          sm={8}
+          xs={4}
+          sm={6}
+          md={8}
           sx={{
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
+
+            paddingLeft: { xs: '4px', sm: '16px' },
+            paddingRight: { xs: '4px', sm: '16px' },
+            minWidth: 0, // Add this to ensure text truncation works
+
           }}
         >
           <Typography
@@ -219,14 +286,25 @@ export default function Register() {
               color: '#572E91',
               fontWeight: 'bold',
               fontSize: {
-                xs: '1rem',
-                sm: '1.25rem',
+                xs: '16px',
+                sm: '18px',
+                md: '20px',
               },
+              textAlign: 'center',
+
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              width: '100%',
+              maxWidth: { xs: '200px', sm: '300px', md: '400px' },
+              margin: '0 auto',
+              lineHeight: 1.2,
             }}
           >
             {displayName}
           </Typography>
         </Grid>
+        <Grid item xs={4} sm={3} md={2} />
       </Grid>
     </Box>
   );
@@ -236,7 +314,21 @@ export default function Register() {
       MuiInputBase: {
         styleOverrides: {
           input: {
-            fontSize: '16px',
+            fontSize: '14px',
+          },
+        },
+      },
+      MuiCssBaseline: {
+        styleOverrides: {
+          body: {
+            margin: 0,
+            padding: 0,
+            boxSizing: 'border-box',
+          },
+          html: {
+            margin: 0,
+            padding: 0,
+            boxSizing: 'border-box',
           },
         },
       },
@@ -246,6 +338,7 @@ export default function Register() {
   if (!isAuthenticated) {
     return (
       <ThemeProvider theme={theme}>
+        <CssBaseline />
         <Box
           sx={{
             minHeight: '100vh',
@@ -253,6 +346,9 @@ export default function Register() {
             flexDirection: 'column',
             bgcolor: '#f5f5f5',
             paddingBottom: '60px',
+            margin: 0,
+            padding: 0,
+            boxSizing: 'border-box',
           }}
         >
           <StaticHeader />
@@ -295,8 +391,8 @@ export default function Register() {
                     mb: 2,
                     textAlign: 'center',
                     fontSize: {
-                      xs: '1.2rem',
-                      sm: '1.5rem',
+                      xs: '20px',
+                      sm: '20px',
                     },
                   }}
                 >
@@ -307,7 +403,7 @@ export default function Register() {
                   uiSchema={uiSchema}
                   SubmitaFunction={handleSubmit}
                   hideSubmit={false}
-                  onChange={({ formData }) => {
+                  onChange={({ formData }: { formData: any }) => {
                     // if (formData.Role) {
                     //   setFormData((prev) => ({ ...prev, 'Sub-Role': [] }));
                     // }

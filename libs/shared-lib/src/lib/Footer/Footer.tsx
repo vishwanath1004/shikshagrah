@@ -7,12 +7,10 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import { useRouter, usePathname } from 'next/navigation';
-
 export const Footer: React.FC = () => {
   const [value, setValue] = useState(0);
   const router = useRouter();
   const pathname = usePathname();
-
   // Map paths to their corresponding tab values
   const pathToValueMap = {
     '/home': 0,
@@ -20,29 +18,70 @@ export const Footer: React.FC = () => {
     '/ml/project-downloads': 2,
     '/profile': 3,
   };
-
-  useEffect(() => {
+  const updateTabValue = (currentPath: string) => {
     // Find the current value based on exact path matches first
     const currentValue =
-      pathToValueMap[pathname as keyof typeof pathToValueMap];
-
+      pathToValueMap[currentPath as keyof typeof pathToValueMap];
     if (currentValue !== undefined) {
       setValue(currentValue);
     } else {
       // Fallback to startsWith check for nested routes
-      if (pathname.startsWith('/content')||  pathname?.startsWith('/player')) {
+      if (
+        currentPath.startsWith('/content') ||
+        currentPath?.startsWith('/player')
+      ) {
         setValue(1);
-      } else if (pathname.startsWith('/ml/project-downloads')) {
+      } else if (currentPath.startsWith('/ml/project-downloads')) {
         setValue(2);
-      } else if (pathname.startsWith('/profile')) {
+      } else if (currentPath.startsWith('/profile')) {
         setValue(3);
+      } else if (currentPath === '/' || currentPath === '') {
+        // Default to home for root path
+        setValue(0);
       }
     }
+  };
+  // Initial check on component mount
+  useEffect(() => {
+    const currentPath = window.location.pathname;
+    updateTabValue(currentPath);
+  }, []);
+  useEffect(() => {
+    // Update based on Next.js pathname
+    updateTabValue(pathname);
+    // Also listen to actual browser URL changes for external navigation
+    const handleUrlChange = () => {
+      const currentPath = window.location.pathname;
+      updateTabValue(currentPath);
+    };
+    // Listen to popstate events (back/forward navigation)
+    window.addEventListener('popstate', handleUrlChange);
+    // Listen to window focus events (when user comes back from external page)
+    const handleWindowFocus = () => {
+      const currentPath = window.location.pathname;
+      updateTabValue(currentPath);
+    };
+    window.addEventListener('focus', handleWindowFocus);
+    // Also check URL on mount and periodically to catch external navigation
+    const checkUrlInterval = setInterval(() => {
+      const currentPath = window.location.pathname;
+      if (currentPath !== pathname) {
+        updateTabValue(currentPath);
+      }
+    }, 500);
+    return () => {
+      window.removeEventListener('popstate', handleUrlChange);
+      window.removeEventListener('focus', handleWindowFocus);
+      clearInterval(checkUrlInterval);
+    };
   }, [pathname]);
-
   const handleNavigation = (path: string) => {
+    // Check if it's a full URL
+    if (path.startsWith('http')) {
+      window.location.href = path;
+      return;
+    }
     const absolutePath = path.startsWith('/') ? path : `/${path}`;
-    // router.replace(absolutePath);
     window.location.href = absolutePath;
   };
 
@@ -67,7 +106,6 @@ export const Footer: React.FC = () => {
       }
     }
   };
-
   return (
     <Box
       sx={{

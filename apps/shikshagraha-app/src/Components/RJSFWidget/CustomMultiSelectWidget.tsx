@@ -117,7 +117,21 @@ WidgetProps) => {
         sx={{
           '& .MuiSelect-select': {
             padding: '10px 12px',
-            fontSize: '12px',
+            fontSize: '12px !important', // Ensure 16px font size to prevent iOS zoom
+            // iOS Safari zoom prevention
+            transform: 'translateZ(0)',
+            WebkitTransform: 'translateZ(0)',
+            WebkitAppearance: 'none',
+            borderRadius: '0',
+            // Prevent zoom on focus
+            '@media screen and (-webkit-min-device-pixel-ratio: 0)': {
+              fontSize: '12px !important',
+            },
+          },
+          // Additional iOS fixes
+          '& .MuiInputBase-root': {
+            WebkitTapHighlightColor: 'transparent',
+            WebkitTouchCallout: 'none',
           },
         }}
         error={false}

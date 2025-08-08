@@ -21,10 +21,10 @@
     "jquery": "^3.7.1",
     "js-cookie": "^3.0.5",
     "jwt-decode": "^4.0.0",
-    "next": "14.2.16",
+    "next": "^14.2.16",
     "next-pwa": "^5.6.0",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "react-i18next": "^15.4.0",
     "react-otp-input": "^3.1.1",
     "react-router-dom": "^7.1.1",
@@ -71,6 +71,7 @@
     "ts-node": "10.9.1",
     "tslib": "^2.3.0",
     "typescript": "~5.6.2",
-    "typescript-eslint": "^8.13.0"
+    "typescript-eslint": "^8.13.0",
+    "webpack": "^5.97.1"
   }
 }

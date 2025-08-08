@@ -62,7 +62,6 @@ export default function Login() {
       const origin = window.location.origin;
       const parts = hostname.split('.');
       localStorage.setItem('origin', origin);
-
       const skipList = [
         'app',
         'www',
@@ -73,28 +72,28 @@ export default function Login() {
         'com',
         'net',
       ];
-
       // Step 1: Find the most likely base domain part
       const domainPart =
         parts.find((part) => !skipList.includes(part.toLowerCase())) ||
         'default';
-
       // Step 2: Remove suffixes like -qa, -dev, etc. if present
       const knownSuffixes = ['-qa', '-dev', '-staging'];
       let coreDomain = knownSuffixes.reduce((name, suffix) => {
         return name.endsWith(suffix) ? name.replace(suffix, '') : name;
       }, domainPart);
-
       fetchBranding(coreDomain).then((brandingData) => {
         if (brandingData) {
           console.log('Branding:', brandingData?.result);
           const tenantCode = brandingData?.result?.code;
           // const tenantCode = 'shikshalokam';
           localStorage.setItem('tenantCode', tenantCode);
+          setDisplayName(tenantCode);
         }
       });
       const displayName = localStorage.getItem('tenantCode');
-
+      if (displayName) {
+        setDisplayName(displayName);
+      }
       if (coreDomain === 'shikshagrah') {
         coreDomain = 'shikshagraha';
       }
@@ -102,7 +101,6 @@ export default function Login() {
       // localStorage.setItem('origin', coreDomain);
     }
   }, []);
-
   const handleChange =
     (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
       setShowError(false);
@@ -115,7 +113,7 @@ export default function Login() {
         ...prev,
         [field]:
           field === 'password'
-            ? !passwordRegex.test(value)
+            ? value !== value.trim() || !passwordRegex.test(value)
             : value.trim() === '',
       }));
     };
@@ -152,7 +150,6 @@ export default function Login() {
       };
       console.log('Signin payload:', payload);
       const response = await signin(payload);
-
       const accessToken = response?.result?.access_token;
       const refreshToken = response?.result?.refresh_token;
       const userId = response?.result?.user?.id;
@@ -174,7 +171,6 @@ export default function Login() {
         router.push('/home');
         const organizations = response?.result?.user?.organizations || [];
         const orgId = organizations[0]?.id;
-
         if (orgId) {
           localStorage.setItem(
             'headers',
@@ -200,7 +196,6 @@ export default function Login() {
   const handlePasswordClick = () => {
     router.push('/forgetpassword');
   };
-
   const remoteUnAuthToaster = () => {
     router.push('/');
   };
@@ -264,13 +259,14 @@ export default function Login() {
           style={{ width: '100%' }}
           onSubmit={(e) => {
             e.preventDefault();
-            if (window.matchMedia('(display-mode: standalone)').matches) {
-              if (!loginClickedRef.current) return;
-              // // Only submit if the submit button was clearly clicked
-              // const isActualSubmit =
-              //   e.nativeEvent.submitter?.className?.includes('MuiButton-root');
-              // if (!isActualSubmit) return;
+            const isStandalone = window.matchMedia(
+              '(display-mode: standalone)'
+            ).matches;
+            // Allow submit only if user clicked login explicitly
+            if (isStandalone && !loginClickedRef.current) {
+              return;
             }
+            // Reset click flag after submission
             loginClickedRef.current = false;
             handleButtonClick();
           }}
@@ -360,9 +356,9 @@ export default function Login() {
                 ? 'Password must be at least 8 characters long, include numerals, uppercase, lowercase, and special characters.'
                 : ''
             }
-            autoComplete="off"
+            autoComplete="new-password"
             inputProps={{
-              autoComplete: 'off',
+              autoComplete: 'new-password',
               name: 'login-password',
               readOnly: readOnly,
               onFocus: () => setReadOnly(false),
@@ -427,7 +423,10 @@ export default function Login() {
                 },
                 width: { xs: '50%', sm: '50%' },
               }}
-              onClick={() => (loginClickedRef.current = true)}
+              onClick={() => {
+                loginClickedRef.current = true;
+                // Allow submit to proceed
+              }}
             >
               Login
             </Button>

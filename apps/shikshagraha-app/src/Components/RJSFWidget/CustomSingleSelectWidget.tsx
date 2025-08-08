@@ -8,6 +8,13 @@ import { useTranslation } from 'react-i18next';
 import { FormHelperText } from '@mui/material';
 import { getSubroles } from '../../services/LoginService';
 
+interface EnumOption {
+  value: string;
+  label: string;
+  _originalData?: any;
+  disabled?: boolean;
+}
+
 const CustomSingleSelectWidget = ({
   id,
   options,
@@ -21,32 +28,36 @@ const CustomSingleSelectWidget = ({
   onSubrolesChange,
 }: WidgetProps & { onSubrolesChange?: (subroles: any[]) => void }) => {
   // Enhanced options resolution
-  const enumOptions = React.useMemo(() => {
+  const enumOptions: EnumOption[] = React.useMemo(() => {
     // 1. First check uiSchema options (most reliable)
     if (uiSchema?.['ui:options']?.enumOptions) {
-      return uiSchema['ui:options'].enumOptions;
+      return (uiSchema['ui:options'].enumOptions as EnumOption[]) || [];
     }
 
     // 2. Check direct options prop
     if (options?.enumOptions) {
-      return options.enumOptions;
+      return (options.enumOptions as EnumOption[]) || [];
     }
 
     // 3. Fallback to schema.enum + enumNames (legacy support)
     if (schema.enum && schema.enumNames) {
-      return schema.enum.map((value, index) => ({
-        value,
-        label: schema.enumNames[index] ?? value,
+      return schema.enum.map((value: any, index: number) => ({
+        value: String(value),
+        label: schema.enumNames[index] ?? String(value),
       }));
     }
 
     // 4. Final fallback - schema.enum only
     if (schema.enum) {
-      return schema.enum.map((value) => ({ value, label: value }));
+      return schema.enum.map((value: any) => ({
+        value: String(value),
+        label: String(value),
+      }));
     }
 
     return [];
   }, [uiSchema, options, schema]);
+
   console.log('enumOptions', enumOptions);
   const { t } = useTranslation();
   const [subRolesVisible, setSubRolesVisible] = useState(false);
@@ -57,10 +68,15 @@ const CustomSingleSelectWidget = ({
   const isRoleField = lowerLabel === 'role';
   const helperText = 'Please select a role.';
 
+  // Filter out 'is a required property' messages
+  const displayErrors = rawErrors.filter(
+    (error) => !error.toLowerCase().includes('required')
+  );
+
   const handleChange = async (event: any) => {
     const selected = event.target.value;
     const selectedOption = enumOptions.find(
-      (option: any) => option.value === selected
+      (option: EnumOption) => option.value === selected
     );
 
     // Always use externalId for the value
@@ -101,6 +117,30 @@ const CustomSingleSelectWidget = ({
     setSubRolesVisible(true);
     // }
   }, [value]);
+
+  // Determine what helper text to show
+  const getHelperText = () => {
+    // Show validation errors first
+    if (displayErrors.length > 0) {
+      return displayErrors[0];
+    }
+
+    // Show helper text for role field when no value is selected
+    if (isRoleField && !value) {
+      return helperText;
+    }
+
+    // Show required field message for other fields when no value is selected
+    if (required && !value) {
+      return `${label} is required`;
+    }
+
+    return '';
+  };
+
+  const shouldShowHelperText = () => {
+    return getHelperText() !== '';
+  };
 
   return (
     <FormControl
@@ -151,7 +191,21 @@ const CustomSingleSelectWidget = ({
         sx={{
           '& .MuiSelect-select': {
             padding: '10px 12px',
-            fontSize: '12px',
+            fontSize: '12px !important', // Ensure 16px font size to prevent iOS zoom
+            // iOS Safari zoom prevention
+            transform: 'translateZ(0)',
+            WebkitTransform: 'translateZ(0)',
+            WebkitAppearance: 'none',
+            borderRadius: '0',
+            // Prevent zoom on focus
+            '@media screen and (-webkit-min-device-pixel-ratio: 0)': {
+              fontSize: '12px !important',
+            },
+          },
+          // Additional iOS fixes
+          '& .MuiInputBase-root': {
+            WebkitTapHighlightColor: 'transparent',
+            WebkitTouchCallout: 'none',
           },
         }}
       >
@@ -164,8 +218,8 @@ const CustomSingleSelectWidget = ({
           </MenuItem>
         )}
 
-        {enumOptions?.length > 0 ? (
-          enumOptions?.map((option) => (
+        {enumOptions.length > 0 ? (
+          enumOptions.map((option: EnumOption) => (
             <MenuItem
               key={option.value}
               value={option.value}
@@ -179,9 +233,18 @@ const CustomSingleSelectWidget = ({
         )}
       </Select>
 
-      {helperText && !value && (
-        <FormHelperText sx={{ color: 'red', fontSize: '11px' }}>
-          {helperText}
+      {shouldShowHelperText() && (
+        <FormHelperText
+          sx={{
+            color:
+              rawErrors && rawErrors.length > 0
+                ? 'error.main'
+                : 'text.secondary',
+            fontSize: '11px',
+            marginLeft: '0px',
+          }}
+        >
+          {getHelperText()}
         </FormHelperText>
       )}
     </FormControl>

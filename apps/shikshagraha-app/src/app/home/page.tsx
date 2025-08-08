@@ -94,7 +94,7 @@ export default function Home() {
     if (sameOrigin) {
       router.push(`${path}`);
     } else {
-      return path + localStorage.getItem('accToken');
+      window.location.href = path + localStorage.getItem('accToken');
     }
   };
 

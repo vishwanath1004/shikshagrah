@@ -121,6 +121,7 @@ export const ContentSearch = async (
       throw new Error('Search API URL environment variable is not configured');
     }
     // Axios request configuration
+    const channel = `${localStorage.getItem('tenantCode')}-channel`;
 
     const data = {
       request: {
@@ -129,7 +130,7 @@ export const ContentSearch = async (
           // identifier: 'do_1141652605790289921389',
           ...filterValues,
           //need below after login user channel for dynamic load content
-          // channel: 'shikshalokam-channel',
+          channel: channel,
 
           primaryCategory: [type],
         },

@@ -70,16 +70,40 @@ const V1Player = ({
   }, [playerConfig]);
 
   return (
-    <iframe
-      ref={previewRef}
-      id="contentPlayer"
-      title="Content Player"
-      src={`${basePath}/libs/sunbird-content-player/preview/preview.html?webview=true`}
-      aria-label="Content Player"
-      style={{ border: 'none' }}
-      width={'100%'}
-      height={'100%'}
-    ></iframe>
+    <div
+      style={{
+        position: 'fixed', // Changed from flex to fixed positioning
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        overflow: 'hidden',
+        backgroundColor: '#f5f5f5', // Optional background
+      }}
+    >
+      <iframe
+        ref={previewRef}
+        id="contentPlayer"
+        title="Content Player"
+        src={`${basePath}/libs/sunbird-content-player/preview/preview.html?webview=true`}
+        aria-label="Content Player"
+        style={{
+          border: 'none',
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: '70%',
+          height: '70%',
+          maxWidth: '100%',
+          maxHeight: '100%',
+          overflow: 'hidden',
+        }}
+        width={'70%'}
+        height={'70%'}
+        scrolling="no"
+      ></iframe>
+    </div>
   );
 };
 

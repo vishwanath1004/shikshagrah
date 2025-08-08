@@ -112,7 +112,7 @@ const Players: React.FC<SunbirdPlayerProps> = ({
             <Loader showBackdrop={false} />
           </Box>
         ) : (
-          <Box height="100vh" width="100%" p="14px">
+          <Box height="100vh" width="100%" p="14px" overflow={'hidden'}>
             {/* <Typography
             color="#024f9d"
             sx={{ padding: '0 0 4px 4px', fontWeight: 'bold' }}

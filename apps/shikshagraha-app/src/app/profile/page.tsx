@@ -115,7 +115,7 @@ export default function Profile({ params }: { params: { id: string } }) {
     confirmPassword: '',
   });
   const [severity, setSeverity] = useState('');
-  const [disableReset, setDisableReset] = useState(false);
+  const [disableReset, setDisableReset] = useState(true);
   const [expandedFields, setExpandedFields] = useState({
     'Professional Role': false,
     'Professional Subrole': false,
@@ -305,41 +305,64 @@ export default function Profile({ params }: { params: { id: string } }) {
       newPassword: '',
       confirmPassword: '',
     });
+    setDisableReset(true); // Reset to disabled state when dialog closes
   };
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setPasswords({ ...passwords, [name]: value });
-    setDisableReset(false);
+
+    // Prevent spaces from being entered
+    if (value.includes(' ')) {
+      return;
+    }
+
+    const newPasswords = { ...passwords, [name]: value };
+    setPasswords(newPasswords);
+
+    // Check if all fields are filled to enable/disable the button
+    const allFieldsFilled =
+      newPasswords.oldPassword &&
+      newPasswords.newPassword &&
+      newPasswords.confirmPassword;
+    setDisableReset(!allFieldsFilled);
 
     if (name === 'newPassword') {
       const passwordRegex =
-        /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[~!@#$%^&*()_+`\-={}"';<>?,./\\]).{8,}$/;
-      if (!passwordRegex.test(value)) {
+        /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[~!@#$%^&*()_+`\-={}"';<>?,./\\])(?!.*\s).{8,}$/;
+      // Check for leading or trailing whitespace
+      if (value !== value.trim()) {
+        setErrors({
+          ...errors,
+          newPassword: 'Password cannot contain leading or trailing spaces.',
+        });
+      } else if (!passwordRegex.test(value)) {
         setErrors({
           ...errors,
           newPassword:
-            'Password must contain at least 8 characters, one uppercase, one lowercase, one number and one special character',
+            'Password must contain at least 8 characters, one uppercase, one lowercase, one number, one special character, and no spaces',
         });
       } else {
         setErrors({ ...errors, newPassword: '' });
       }
 
-      if (passwords.confirmPassword && value !== passwords.confirmPassword) {
+      if (
+        newPasswords.confirmPassword &&
+        value !== newPasswords.confirmPassword
+      ) {
         setErrors({
           ...errors,
           confirmPassword: 'Password and confirm password must be the same.',
         });
       } else if (
-        passwords.confirmPassword &&
-        value === passwords.confirmPassword
+        newPasswords.confirmPassword &&
+        value === newPasswords.confirmPassword
       ) {
         setErrors({ ...errors, confirmPassword: '' });
       }
     }
 
     if (name === 'confirmPassword') {
-      if (value !== passwords.newPassword) {
+      if (value !== newPasswords.newPassword) {
         setErrors({
           ...errors,
           confirmPassword: 'Password and confirm password must be the same.',
@@ -364,10 +387,15 @@ export default function Profile({ params }: { params: { id: string } }) {
       hasErrors = true;
     } else {
       const passwordRegex =
-        /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[~!@#$%^&*()_+`\-={}"';<>?,./\\]).{8,}$/;
-      if (!passwordRegex.test(passwords.newPassword)) {
+        /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[~!@#$%^&*()_+`\-={}"';<>?,./\\])(?!.*\s).{8,}$/;
+      // Check for leading or trailing whitespace
+      if (passwords.newPassword !== passwords.newPassword.trim()) {
         newErrors.newPassword =
-          'Password must contain at least 8 characters, one uppercase, one lowercase, one number and one special character';
+          'Password cannot contain leading or trailing spaces.';
+        hasErrors = true;
+      } else if (!passwordRegex.test(passwords.newPassword)) {
+        newErrors.newPassword =
+          'Password must contain at least 8 characters, one uppercase, one lowercase, one number, one special character, and no spaces';
         hasErrors = true;
       }
     }
@@ -1072,6 +1100,11 @@ export default function Profile({ params }: { params: { id: string } }) {
                   type={showOldPassword ? 'text' : 'password'}
                   value={passwords.oldPassword}
                   onChange={handlePasswordChange}
+                  onKeyDown={(e) => {
+                    if (e.key === ' ') {
+                      e.preventDefault();
+                    }
+                  }}
                   error={!!errors.oldPassword}
                   helperText={errors.oldPassword}
                   InputProps={{
@@ -1097,6 +1130,11 @@ export default function Profile({ params }: { params: { id: string } }) {
                   type={showNewPassword ? 'text' : 'password'}
                   value={passwords.newPassword}
                   onChange={handlePasswordChange}
+                  onKeyDown={(e) => {
+                    if (e.key === ' ') {
+                      e.preventDefault();
+                    }
+                  }}
                   error={!!errors.newPassword}
                   helperText={errors.newPassword}
                   InputProps={{
@@ -1122,6 +1160,11 @@ export default function Profile({ params }: { params: { id: string } }) {
                   type={showConfirmPassword ? 'text' : 'password'}
                   value={passwords.confirmPassword}
                   onChange={handlePasswordChange}
+                  onKeyDown={(e) => {
+                    if (e.key === ' ') {
+                      e.preventDefault();
+                    }
+                  }}
                   error={!!errors.confirmPassword}
                   helperText={errors.confirmPassword}
                   InputProps={{

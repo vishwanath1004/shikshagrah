@@ -185,7 +185,8 @@ const NewUserWithStepper: React.FC = () => {
   const handleUdiseChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = event.target.value.replace(/\s/g, ''); // Remove spaces
     setUdisecode(newValue);
-    setButtonDisabled(false);
+    setLocationData({}); // Clear previously fetched location data
+    setButtonDisabled(true); // Disable Send OTP button until fetch
     setShowError(false);
   };
 
@@ -214,13 +215,13 @@ const NewUserWithStepper: React.FC = () => {
     }
 
     try {
-      setButtonDisabled(false);
+      setButtonDisabled(true); // Keep disabled until fetch is successful
       const newLocationData = await fetchLocationData(udisecode);
 
       if (newLocationData?.state) {
         setLocationData(newLocationData);
-        console.log(newLocationData, 'hello');
         setShowError(false);
+        setButtonDisabled(false); // Enable Send OTP button only after successful fetch
       } else {
         setShowError(true);
         setErrorMessage('Invalid UDISE Code');
@@ -229,6 +230,7 @@ const NewUserWithStepper: React.FC = () => {
     } catch (error: any) {
       setShowError(true);
       setErrorMessage(error.message);
+      setButtonDisabled(true);
     }
   };
 
